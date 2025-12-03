@@ -82,7 +82,7 @@ void AGASPCharacter::StartRagdollingImplementation()
 
 	// Disable capsule collision and enable mesh physics simulation.
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	
+
 	GetMesh()->SetCollisionObjectType(ECC_PhysicsBody);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	GetMesh()->SetSimulatePhysics(true);
@@ -183,6 +183,13 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 	bool bGrounded;
 	SetActorLocation(RagdollTraceGround(bGrounded), false);
 
+	{
+		const auto Location{GetActorLocation()};
+		GetMesh()->SetWorldLocation({
+			Location.X, Location.Y, Location.Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
+		});
+	}
+
 	// Zero target location means that it hasn't been replicated yet, so we can't apply the logic below.
 	if (!bLocallyControlled && !RagdollTargetLocation.IsZero())
 	{
@@ -195,9 +202,7 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 
 		const auto HorizontalSpeedSquared{RagdollingState.Velocity.SizeSquared2D()};
 
-		const auto PullForceBoneName{
-			HorizontalSpeedSquared > FMath::Square(300.0f) ? NAME_spine_03 : NAME_pelvis
-		};
+		const auto PullForceBoneName{HorizontalSpeedSquared > FMath::Square(300.0f) ? NAME_spine_03 : NAME_pelvis};
 
 		auto* PullForceBody{GetMesh()->GetBodyInstance(PullForceBoneName)};
 
