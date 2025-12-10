@@ -1,16 +1,21 @@
 #pragma once
 
 #include "GameplayTagContainer.h"
-#include "GameFramework/Character.h"
 #include "Types/EnumTypes.h"
+#include "MoverSimulationTypes.h"
+#include "Types/MovementTypes.h"
 #include "Types/TagTypes.h"
 #include "Types/StructTypes.h"
 #include "GASPCharacter.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnStateChanged, FGameplayTag, OldGameplayTag);
+class UNavMoverComponent;
+class UGASPMoverComponent;
+
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStateChanged, FGameplayTag, OldGameplayTag, FGameplayTag, NewGameplayTag);
 
 UCLASS()
-class GASP_API AGASPCharacter : public ACharacter
+class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterface
 {
 	GENERATED_BODY()
 
@@ -19,19 +24,38 @@ class GASP_API AGASPCharacter : public ACharacter
 	UFUNCTION(Server, Reliable)
 	void Server_SetMovementMode(const FGameplayTag NewMovementMode);
 
+	/** The main skeletal mesh associated with this Character (optional sub-object). */
+	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
+	TObjectPtr<USkeletalMeshComponent> Mesh;
+	/** The CapsuleComponent being used for movement collision (by CharacterMovement). Always treated as being vertically aligned in simple collision check functions. */
+	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
+	TObjectPtr<class UCapsuleComponent> CapsuleComponent;
+
+	uint8 bHasProduceInputBpFunc : 1;
+
 protected:
 	UPROPERTY(EditAnywhere, Category="PoseSearchData|Choosers", BlueprintReadOnly)
 	TObjectPtr<class UChooserTable> OverlayTable{nullptr};
 	UPROPERTY(EditAnywhere, Category="PoseSearchData|Choosers", BlueprintReadOnly)
 	TObjectPtr<UChooserTable> PosesTable{nullptr};
+	UPROPERTY(EditAnywhere, Category="PoseSearchData|Choosers", BlueprintReadOnly)
+	TObjectPtr<UChooserTable> RotationCurveTable{nullptr};
 
-	UPROPERTY(BlueprintReadOnly, Transient)
-	TObjectPtr<class UGASPCharacterMovementComponent> MovementComponent{};
+	UPROPERTY(BlueprintReadOnly)
+	float DebugAngle{0.f};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<class UMotionWarpingComponent> MotionWarpingComponent{};
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components", Replicated)
 	TObjectPtr<class UGASPTraversalComponent> TraversalComponent{};
+
+	UPROPERTY(BlueprintReadOnly)
+	FGASPMoverInputs MoverCustomInputs_PreSim;
+	UPROPERTY(BlueprintGetter=GetMoverInputs_PostSim)
+	FGASPMoverInputs MoverCustomInputs_PostSim;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	FGASPInputState PlayerInputState;
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -39,10 +63,13 @@ protected:
 
 	virtual void PostInitializeComponents() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PrevCustomMode) override;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Transient)
-	FGameplayTag DesiredGait{GaitTags::Run};
+	UFUNCTION()
+	virtual void OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName);
+	UFUNCTION()
+	virtual void OnPreSimulateTick(const FMoverTimeStep& TimeStep, const FMoverInputCmdContext& InputCmd);
+	UFUNCTION()
+	virtual void OnStanceChanged(EStanceMode OldStance, EStanceMode NewStance);
 
 	UPROPERTY(BlueprintReadOnly, Transient)
 	FGameplayTag Gait{GaitTags::Run};
@@ -65,8 +92,6 @@ protected:
 	FGameplayTag PreviousMovementMode{MovementModeTags::Grounded};
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Transient)
-	FVector_NetQuantize ReplicatedAcceleration{ForceInit};
-	UPROPERTY(BlueprintReadOnly, Replicated, Transient)
 	FVector_NetQuantize RagdollTargetLocation{ForceInit};
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State|Character", Transient)
@@ -79,14 +104,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character")
 	uint8 bLimitInitialRagdollSpeed : 1{false};
 
-	void SetReplicatedAcceleration(const FVector& NewAcceleration);
-
 	UFUNCTION(BlueprintPure)
 	UAnimMontage* SelectGetUpMontage(bool bRagdollFacingUpward);
 
-	virtual void OnWalkingOffLedge_Implementation(const FVector& PreviousFloorImpactNormal,
-	                                              const FVector& PreviousFloorContactNormal,
-	                                              const FVector& PreviousLocation, float TimeDelta) override;
+protected:
+	UPROPERTY(BlueprintReadOnly, Category = "Input")
+	FRotator LastControlRotation{FRotator::ZeroRotator};
 
 	/** Please add a function description */
 	UFUNCTION(BlueprintPure, Category = "Traversal")
@@ -102,6 +125,86 @@ protected:
 
 	UFUNCTION(BlueprintPure, Category = "Input")
 	FVector2D GetMovementInputScaleValue(const FVector2D InVector) const;
+
+	// Entry point for input production. Do not override. To extend in derived character types, override OnProduceInput for native types or implement "Produce Input" blueprint event
+	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
+
+	void GetMovementDirectionAddOffset(EMovementDirection& MovementDirection, float& RotationOffset);
+	// Override this function in native class to author input for the next simulation frame. Consider also calling Super method.
+	virtual void OnProduceInput(float DeltaMs, FMoverInputCmdContext& InputCmdResult);
+
+	// Implement this event in Blueprints to author input for the next simulation frame. Consider also calling Parent event.
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Produce Input", meta = (ScriptName = "OnProduceInput"))
+	FMoverInputCmdContext OnProduceInputInBlueprint(float DeltaMs, FMoverInputCmdContext InputCmd);
+
+	UPROPERTY(BlueprintReadOnly)
+	float ControlRotationRate{0.f};
+	UPROPERTY(BlueprintReadOnly)
+	uint8 TwinStickMode : 1{false};
+	UPROPERTY(BlueprintReadOnly)
+	FRotator TwinStickAimRotation{FRotator::ZeroRotator};
+
+	virtual void RefreshInputMover();
+	virtual void RefreshFloorValues();
+	virtual void RefreshControlRotationRate(const float DeltaTime);
+	virtual void RefreshTwinStickMode();
+	virtual void RefreshRotationMode();
+	[[maybe_unused]] virtual void RefreshSlidingAudio();
+
+public:
+	UPROPERTY(BlueprintReadOnly, Category=Character)
+	uint8 bPressedJump : 1;
+
+	UFUNCTION(BlueprintPure)
+	const FGASPMoverInputs& GetMoverInputs_PostSim()
+	{
+		return MoverCustomInputs_PostSim;
+	}
+
+	UFUNCTION(BlueprintPure)
+	const FGASPMoverInputs& GetMoverInputs_PreSim()
+	{
+		return MoverCustomInputs_PreSim;
+	}
+
+	UFUNCTION(BlueprintPure)
+	virtual FVector GetMovementInputVector();
+
+	UFUNCTION(BlueprintPure)
+	virtual FVector GetOrientationIntent();
+
+	UFUNCTION(BlueprintPure)
+	virtual FRotator GetAimingRotation();
+
+	/** Returns Mesh subobject **/
+	inline class USkeletalMeshComponent* GetMesh() const { return Mesh; }
+
+	/** Name of the MeshComponent. Use this name if you want to prevent creation of the component (with ObjectInitializer.DoNotCreateDefaultSubobject). */
+	static FName MeshComponentName;
+
+	/** Returns CapsuleComponent subobject **/
+	inline class UCapsuleComponent* GetCapsuleComponent() const { return CapsuleComponent; }
+
+	/** Name of the CapsuleComponent. */
+	static FName CapsuleComponentName;
+
+	// Accessor for the actor's movement component
+	UFUNCTION(BlueprintPure, Category = Mover)
+	UGASPMoverComponent* GetMoverComponent() const { return CharacterMotionComponent; }
+
+	//~ Begin INavAgentInterface Interface
+	virtual FVector GetNavAgentLocation() const override;
+	//~ End INavAgentInterface Interface
+
+	virtual void UpdateNavigationRelevance() override;
+
+protected:
+	UPROPERTY(Category = Movement, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UGASPMoverComponent> CharacterMotionComponent;
+
+	/** Holds functionality for nav movement data and functions */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Nav Movement")
+	TObjectPtr<UNavMoverComponent> NavMoverComponent;
 
 public:
 	void RefreshGait();
@@ -129,12 +232,11 @@ public:
 	FOnStateChanged MovementModeChanged;
 
 	UFUNCTION(BlueprintNativeEvent)
-	void OnOverlayModeChanged(const FGameplayTag OldOverlayMode);
+	void OnOverlayModeChanged(const FGameplayTag OldOverlayMode, const FGameplayTag NewOverlayMode);
 	UFUNCTION(BlueprintNativeEvent)
-	void OnPoseModeChanged(const FGameplayTag OldPoseMode);
+	void OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode);
 
 	void LinkAnimInstance(const UChooserTable* DataTable, const FGameplayTag OldState, const FGameplayTag State);
-
 
 	// Sets default values for this character's properties
 	explicit AGASPCharacter(const FObjectInitializer& ObjectInitializer);
@@ -143,10 +245,8 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	virtual void PostRegisterAllComponents() override;
-
-	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
-	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+	// virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+	// virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 
 	/****************************
 	 *		Movement States		*
@@ -155,21 +255,14 @@ public:
 	void SetGait(const FGameplayTag NewGait, bool bForce = false);
 
 	UFUNCTION(BlueprintCallable)
-	void SetDesiredGait(const FGameplayTag NewGait, bool bForce = false);
-	UFUNCTION(Server, Reliable)
-	void Server_SetDesiredGait(const FGameplayTag NewGait);
-
-	UFUNCTION(BlueprintCallable)
 	void SetRotationMode(const FGameplayTag NewRotationMode, const bool bForce = false);
 	UFUNCTION(Server, Reliable)
 	void Server_SetRotationMode(const FGameplayTag NewRotationMode);
 
 	UFUNCTION(BlueprintCallable)
-	void SetMovementState(const FGameplayTag
-	                      NewMovementState, const bool bForce = false);
+	void SetMovementState(const FGameplayTag NewMovementState, const bool bForce = false);
 	UFUNCTION(Server, Reliable)
-	void Server_SetMovementState(const FGameplayTag
-		NewMovementState);
+	void Server_SetMovementState(const FGameplayTag NewMovementState);
 
 	UFUNCTION(BlueprintCallable)
 	void SetStanceMode(const FGameplayTag NewStanceMode, const bool bForce = false);
@@ -194,14 +287,25 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual bool CanSprint();
 
-	template <typename T>
-	T* GetTypedCharacterMovement() const;
+	/** 
+	 * Make the character jump on the next update.	 
+	 * If you want your character to jump according to the time that the jump key is held,
+	 * then you can set JumpMaxHoldTime to some non-zero value. Make sure in this case to
+	 * call StopJumping() when you want the jump's z-velocity to stop being applied (such 
+	 * as on a button up event), otherwise the character will carry on receiving the 
+	 * velocity until JumpKeyHoldTime reaches JumpMaxHoldTime.
+	 */
+	UFUNCTION(BlueprintCallable, Category=Character)
+	virtual void Jump();
 
-	UFUNCTION(BlueprintGetter)
-	FORCEINLINE FVector GetReplicatedAcceleration() const
-	{
-		return ReplicatedAcceleration;
-	}
+	/** 
+	 * Stop the character from jumping on the next update. 
+	 * Call this from an input event (such as a button 'up' event) to cease applying
+	 * jump Z-velocity. If this is not called, then jump z-velocity will be applied
+	 * until JumpMaxHoldTime is reached.
+	 */
+	UFUNCTION(BlueprintCallable, Category=Character)
+	virtual void StopJumping();
 
 	UFUNCTION(BlueprintGetter)
 	FORCEINLINE FGameplayTag GetOverlayMode() const
@@ -245,7 +349,10 @@ public:
 		return StanceMode;
 	}
 
-	// Ragdolling
+	UPROPERTY(BlueprintReadOnly)
+	FGameplayTagContainer StateContainer;
+
+public:
 	bool IsRagdollingAllowedToStart() const;
 
 	const FRagdollingState& GetRagdollingState() const
@@ -293,9 +400,6 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnStopRagdolling();
 
-	UPROPERTY(BlueprintReadOnly)
-	FGameplayTagContainer StateContainer;
-
 private:
 	UFUNCTION(Server, Reliable)
 	void ServerStopRagdolling();
@@ -316,9 +420,3 @@ private:
 
 	void ConstraintRagdollSpeed() const;
 };
-
-template <typename T>
-T* AGASPCharacter::GetTypedCharacterMovement() const
-{
-	return static_cast<T*>(GetCharacterMovement());
-}

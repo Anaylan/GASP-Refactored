@@ -6,12 +6,11 @@
 #include "Types/StructTypes.h"
 #include "GASPTraversalComponent.generated.h"
 
-
+class UGASPMoverComponent;
 class UGASPAnimInstance;
 class UCapsuleComponent;
 class USplineComponent;
 class UMotionWarpingComponent;
-class UGASPCharacterMovementComponent;
 class AGASPCharacter;
 
 /**
@@ -28,6 +27,8 @@ struct GASP_API FTraversalChooserInput
 	FGameplayTag Gait{FGameplayTag::EmptyTag};
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traversal")
 	TEnumAsByte<EMovementMode> MovementMode{MOVE_None};
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traversal")
+	FGameplayTagContainer StateContainer{};
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traversal")
 	float Speed{0.0f};
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traversal")
@@ -203,13 +204,6 @@ protected:
 	void Traversal_ServerImplementation(const FTraversalCheckResult TraversalRep);
 
 	/** 
-	 * Called when a traversal action starts
-	 * Configures movement component to ignore client movement errors during traversal
-	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
-	void OnTraversalStart();
-
-	/** 
 	 * Replication callback for TraversalCheckResult
 	 * Triggers traversal action execution when replicated from server
 	 */
@@ -217,17 +211,10 @@ protected:
 	void OnRep_TraversalResult();
 
 	/** 
-	 * Called when a traversal action ends
-	 * Resets movement component error checking settings
-	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
-	void OnTraversalEnd() const;
-
-	/** 
 	 * Handles the completion of a traversal action 
 	 */
 	UFUNCTION()
-	void OnCompleteTraversal();
+	void OnCompleteTraversal(FName NotifyName);
 
 	/** Cached traversal check results from the most recent traversal attempt */
 	UPROPERTY(BlueprintReadOnly, Category="Traversal", ReplicatedUsing=OnRep_TraversalResult, Transient)
@@ -240,10 +227,6 @@ protected:
 	/** Tags that prevent specific traversal actions from being selected */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Traversal")
 	FName BannedTag{TEXT("Banned")};
-
-	/** Delay before re-enabling movement correction after traversal */
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Traversal")
-	float IgnoreCorrectionDelay{.2f};
 
 	/** Minimum required width of a ledge for traversal in units */
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Traversal")
@@ -327,7 +310,7 @@ public:
 	 * @return Configured collision query parameters
 	 */
 	FCollisionQueryParams GetQueryParams() const;
-	
+
 	/**
 	 * Attempts to perform a traversal action based on input parameters
 	 * Performs environment detection, animation selection, and initiates traversal
@@ -366,7 +349,7 @@ private:
 	TWeakObjectPtr<AGASPCharacter> CharacterOwner{};
 
 	UPROPERTY(Transient)
-	TWeakObjectPtr<UGASPCharacterMovementComponent> MovementComponent{};
+	TWeakObjectPtr<UGASPMoverComponent> MoverComponent{};
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<UMotionWarpingComponent> MotionWarpingComponent{};

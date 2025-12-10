@@ -4,6 +4,8 @@ namespace MovementModeTags
 {
 	UE_DEFINE_GAMEPLAY_TAG(Grounded, FName{TEXTVIEW("GASP.Movement.Mode.OnGrounded")});
 	UE_DEFINE_GAMEPLAY_TAG(InAir, FName{TEXTVIEW("GASP.Movement.Mode.InAir")});
+	UE_DEFINE_GAMEPLAY_TAG(Slide, FName{TEXTVIEW("GASP.Movement.Mode.Slide")});
+	UE_DEFINE_GAMEPLAY_TAG(Traverse, FName{TEXTVIEW("GASP.Movement.Mode.Traverse")});
 }
 
 namespace PoseModeTags

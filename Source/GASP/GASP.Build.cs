@@ -7,7 +7,7 @@ public class GASP : ModuleRules
 	public GASP(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		// IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 		CppCompileWarningSettings.NonInlinedGenCppWarningLevel = WarningLevel.Warning;
 
 		PublicDependencyModuleNames.AddRange(new string[]
@@ -16,19 +16,18 @@ public class GASP : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"NetCore",
-			"GameplayTags", 
+			"Mover",
+			"NetworkPrediction",
+			"GameplayTags",
+			"AIModule",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"MotionTrajectory",
-			"PoseSearch",
-			"Chooser",
+			"MotionTrajectory", "PoseSearch", "Chooser", "BlendStack",
 			"AnimationWarpingRuntime",
-			"BlendStack",
 			"PhysicsCore",
-			"AnimGraphRuntime",
-			"Niagara",
+			"AnimGraphRuntime", "Niagara",
 			"MotionWarping",
 		});
 

@@ -1,61 +1,9 @@
 #pragma once
 
 #include "GameplayTags.h"
-#include "Utils/GASPMath.h"
-#include "TagTypes.h"
 #include "Curves/CurveFloat.h"
-#include "Curves/CurveVector.h"
 #include "StructTypes.generated.h"
 
-/**
- *
- */
-USTRUCT(BlueprintType)
-struct GASP_API FGaitSettings
-{
-	GENERATED_BODY()
-
-	float GetSpeed(const FGameplayTag& Gait, const FVector& Velocity,
-	               const FRotator& ActorRotation) const
-	{
-		const auto SpeedRange = SpeedMap.Contains(Gait) ? SpeedMap.FindRef(Gait) : FVector::ZeroVector;
-
-		return UE_REAL_TO_FLOAT(InterpolateSpeedForDirection(SpeedRange, Velocity, ActorRotation));
-	}
-
-	UCurveVector* GetMovementCurve() const
-	{
-		return MovementCurve.Get();
-	}
-
-	float InterpolateSpeedForDirection(const FVector& SpeedRange, const FVector& Velocity,
-	                                   const FRotator& ActorRotation) const
-	{
-		const float Dir{FGASPMath::CalculateDirection(Velocity, ActorRotation)};
-		const float StrafeSpeedMap{IsValid(StrafeCurve) ? StrafeCurve->GetFloatValue(FMath::Abs(Dir)) : 0.f};
-
-		if (StrafeSpeedMap < 1.f)
-		{
-			return FMath::Lerp(SpeedRange.X, SpeedRange.Y, StrafeSpeedMap);
-		}
-
-		return FMath::Lerp(SpeedRange.Y, SpeedRange.Z, StrafeSpeedMap - 1.f);
-	}
-
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly,
-		meta = (Description = "X = Forward Speed, Y = Strafe Speed, Z = Backwards Speed"))
-	TMap<FGameplayTag, FVector> SpeedMap{
-		{GaitTags::Walk, {200.f, 180.f, 150.f}},
-		{GaitTags::Run, {450.f, 400.f, 350.f}},
-		{GaitTags::Sprint, {700.f, 0.f, 0.f}}
-	};
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UCurveFloat> StrafeCurve{};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UCurveVector> MovementCurve{};
-};
 
 /**
  *
@@ -85,6 +33,42 @@ struct GASP_API FCharacterInfo
 	FTransform RootTransform{FTransform::Identity};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
 	FTransform ActorTransform{FTransform::Identity};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
+	FVector SmoothedGroundNormal{FVector::ZeroVector};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
+	FVector RelativeAcceleration{FVector::ZeroVector};
+};
+
+USTRUCT(BlueprintType)
+struct GASP_API FTrajectoryInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	FVector FutureVelocity{FVector::ZeroVector};
+	UPROPERTY(BlueprintReadOnly)
+	FVector PreviousVelocity{FVector::ZeroVector};
+	UPROPERTY(BlueprintReadOnly)
+	FVector PreviousFutureVelocity{FVector::ZeroVector};
+	UPROPERTY(BlueprintReadOnly)
+	FVector NearFutureVelocity{FVector::ZeroVector};
+	UPROPERTY(BlueprintReadOnly)
+	FVector PastAngularVelocity{FVector::ZeroVector};
+	UPROPERTY(BlueprintReadOnly)
+	FVector CurrentAngularVelocity{FVector::ZeroVector};
+
+	UPROPERTY(BlueprintReadOnly)
+	float PreviousFutureFacingDelta{0.f};
+	UPROPERTY(BlueprintReadOnly)
+	float FutureFacingDelta{0.f};
+	UPROPERTY(BlueprintReadOnly)
+	float CirclingTime{0.f};
+
+	UPROPERTY(BlueprintReadOnly)
+	uint8 bIsCircling : 1{false};
+
+	UPROPERTY(BlueprintReadOnly)
+	FRotator FutureFacing{FRotator::ZeroRotator};
 };
 
 /**
@@ -98,17 +82,13 @@ struct GASP_API FMotionMatchingInfo
 	UPROPERTY(BlueprintReadOnly)
 	TWeakObjectPtr<const class UPoseSearchDatabase> PoseSearchDatabase{};
 	UPROPERTY(BlueprintReadOnly)
-	FVector FutureVelocity{FVector::ZeroVector};
-	UPROPERTY(BlueprintReadOnly)
-	FVector CurrentVelocity{FVector::ZeroVector};
-	UPROPERTY(BlueprintReadOnly)
-	FVector PreviousVelocity{FVector::ZeroVector};
-	UPROPERTY(BlueprintReadOnly)
 	FVector LastNonZeroVector{FVector::ZeroVector};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FName> DatabaseTags{};
 	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
 	float OrientationAlpha{.2f};
+	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	float ProceduralTargetTime{.2f};
 	UPROPERTY(BlueprintReadOnly)
 	float PreviousDesiredYawRotation{0.f};
 	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
@@ -132,7 +112,7 @@ struct GASP_API FAnimUtilityNames
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName EnableMotionWarpingCurveName{TEXT("Enable_OrientationWarping")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FName AnimationSlotName{TEXT("DefaultSlot")};
+	FName SteeringTargetTime{TEXT("Enable_OrientationWarping")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName DisableAOCurveName{TEXT("Disable_AO")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

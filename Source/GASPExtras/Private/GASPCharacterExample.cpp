@@ -43,35 +43,43 @@ void AGASPCharacterExample::SprintAction(bool bPressed)
 {
 	if (bPressed)
 	{
-		SetDesiredGait(GaitTags::Sprint);
+		PlayerInputState.DesiredGait = GaitTags::Sprint;
+		if (StanceMode == StanceTags::Crouching)
+		{
+			PlayerInputState.DesiredStance = StanceTags::Standing;
+		}
+		return;
 	}
-	else
-	{
-		SetDesiredGait(GaitTags::Run);
-	}
+	PlayerInputState.DesiredGait = GaitTags::Run;
 }
 
 void AGASPCharacterExample::WalkAction(bool bPressed)
 {
-	if (GetGait() != GaitTags::Walk)
+	if (PlayerInputState.DesiredGait != GaitTags::Sprint)
 	{
-		SetDesiredGait(GaitTags::Walk);
-	}
-	else
-	{
-		SetDesiredGait(GaitTags::Run);
+		if (PlayerInputState.DesiredGait != GaitTags::Walk)
+		{
+			PlayerInputState.DesiredGait = GaitTags::Walk;
+		}
+		else
+		{
+			PlayerInputState.DesiredGait = GaitTags::Run;
+		}
 	}
 }
 
 void AGASPCharacterExample::CrouchAction(bool bPressed)
 {
-	if (GetStanceMode() != StanceTags::Crouching)
+	if (MovementMode == MovementModeTags::Grounded || MovementMode == MovementModeTags::Slide)
 	{
-		Crouch();
-	}
-	else
-	{
-		UnCrouch();
+		if (StanceMode == StanceTags::Crouching)
+		{
+			PlayerInputState.DesiredStance = StanceTags::Standing;
+		}
+		else
+		{
+			PlayerInputState.DesiredStance = StanceTags::Crouching;
+		}
 	}
 }
 
@@ -85,16 +93,23 @@ void AGASPCharacterExample::JumpAction(bool bPressed)
 
 	if (bPressed && !IsDoingTraversal())
 	{
-		const FTraversalResult Result = TryTraversalAction();
-
-		if ((Result.bTraversalCheckFailed || Result.bMontageSelectionFailed) && CanJump())
+		if (const auto [bTraversalCheckFailed, bMontageSelectionFailed] = TryTraversalAction(); bTraversalCheckFailed ||
+			bMontageSelectionFailed)
 		{
-			Jump();
+			if (GetStanceMode() != StanceTags::Standing)
+			{
+				PlayerInputState.DesiredStance = StanceTags::Standing;
+			}
+			else
+			{
+				Jump();
+				FTimerHandle TimerHandle;
+				GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]()
+				{
+					StopJumping();
+				}), .1f, false);
+			}
 		}
-	}
-	else
-	{
-		StopJumping();
 	}
 }
 
@@ -102,11 +117,11 @@ void AGASPCharacterExample::AimAction(bool bPressed)
 {
 	if (bPressed)
 	{
-		SetRotationMode(RotationTags::Aim);
+		PlayerInputState.DesiredRotationMode = RotationTags::Aim;
 	}
 	else
 	{
-		SetRotationMode(RotationTags::OrientToMovement);
+		PlayerInputState.DesiredRotationMode = RotationTags::OrientToMovement;
 	}
 }
 
@@ -124,13 +139,13 @@ void AGASPCharacterExample::RagdollAction(bool bPressed)
 
 void AGASPCharacterExample::StrafeAction(bool bPressed)
 {
-	if (GetRotationMode() != RotationTags::Strafe)
+	if (RotationMode != RotationTags::Strafe)
 	{
-		SetRotationMode(RotationTags::Strafe);
+		PlayerInputState.DesiredRotationMode = RotationTags::Strafe;
 	}
 	else
 	{
-		SetRotationMode(RotationTags::OrientToMovement);
+		PlayerInputState.DesiredRotationMode = RotationTags::OrientToMovement;
 	}
 }
 
@@ -141,18 +156,14 @@ void AGASPCharacterExample::MoveAction(const FVector2D& Value)
 		return;
 	}
 
-	const FRotator Rotation = GetControlRotation();
-	const auto YawRotation = FRotator(0.f, Rotation.Yaw, 0.f);
-	const FVector ForwardDirectionDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	const FVector RightDirectionDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-
-	const FVector2D MovementInputScale = GetMovementInputScaleValue(Value);
-	AddMovementInput(ForwardDirectionDirection, MovementInputScale.X);
-	AddMovementInput(RightDirectionDirection, MovementInputScale.Y);
+	AddMovementInput({Value.X, Value.Y, 0.f});
 }
 
 void AGASPCharacterExample::LookAction(const FVector2D& Value)
 {
-	AddControllerYawInput(Value.X);
-	AddControllerPitchInput(-1 * Value.Y);
+	if (!TwinStickMode)
+	{
+		AddControllerYawInput(Value.X);
+		AddControllerPitchInput(-1 * Value.Y);
+	}
 }

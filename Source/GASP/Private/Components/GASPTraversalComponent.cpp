@@ -4,15 +4,15 @@
 #include "Animation/GASPAnimInstance.h"
 #include "ChooserFunctionLibrary.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/GASPCharacterMovementComponent.h"
 #include "Interfaces/GASPInteractionTransformInterface.h"
 #include "IObjectChooser.h"
 #include "MotionWarpingComponent.h"
-#include "PlayMontageCallbackProxy.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/AssetManager.h"
+#include "MovementSet/GASPMoverComponent.h"
 #include "PoseSearch/PoseSearchLibrary.h"
 #include "PoseSearch/PoseSearchResult.h"
+#include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPTraversalComponent)
 
@@ -58,7 +58,7 @@ void UGASPTraversalComponent::BeginPlay()
 		return;
 	}
 
-	MovementComponent = CharacterOwner->FindComponentByClass<UGASPCharacterMovementComponent>();
+	MoverComponent = CharacterOwner->GetMoverComponent();
 	MotionWarpingComponent = CharacterOwner->FindComponentByClass<UMotionWarpingComponent>();
 	CapsuleComponent = CharacterOwner->GetCapsuleComponent();
 	MeshComponent = CharacterOwner->GetMesh();
@@ -340,7 +340,11 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	ChooserParameters.ActionType = NewTraversalCheckResult.ActionType;
 	ChooserParameters.Gait = CharacterOwner->GetGait();
 	ChooserParameters.Speed = CharacterOwner->GetVelocity().Size2D();
-	ChooserParameters.MovementMode = MovementComponent->MovementMode;
+
+	// TODO: wtf? maybe change movement mode into state container?
+	// ChooserParameters.MovementMode = MovementModeMap.FindRef(MoverComponent->GetMovementModeName());
+	ChooserParameters.StateContainer = CharacterOwner->StateContainer;
+
 	ChooserParameters.bHasBackFloor = NewTraversalCheckResult.bHasBackFloor;
 	ChooserParameters.bHasBackLedge = NewTraversalCheckResult.bHasBackLedge;
 	ChooserParameters.bHasFrontLedge = NewTraversalCheckResult.bHasFrontLedge;
@@ -448,74 +452,41 @@ void UGASPTraversalComponent::Traversal_ServerImplementation(const FTraversalChe
 	Multicast_Traversal(TraversalCheckResult);
 }
 
-void UGASPTraversalComponent::OnTraversalStart()
-{
-	MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = true;
-	MovementComponent->bServerAcceptClientAuthoritativePosition = true;
-}
-
 void UGASPTraversalComponent::OnRep_TraversalResult()
 {
 	PerformTraversalAction();
 }
 
-void UGASPTraversalComponent::OnTraversalEnd() const
-{
-	MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = false;
-	MovementComponent->bServerAcceptClientAuthoritativePosition = false;
-}
-
-void UGASPTraversalComponent::OnCompleteTraversal()
+void UGASPTraversalComponent::OnCompleteTraversal(FName NotifyName)
 {
 	bDoingTraversalAction = false;
 	CapsuleComponent->IgnoreComponentWhenMoving(TraversalCheckResult.HitComponent, false);
 
-	const EMovementMode MovementMode{
+	const auto MovementMode{
 		TraversalCheckResult.ActionType == LocomotionActionTags::Vault
-			? MOVE_Falling
-			: MOVE_Walking
+			? DefaultModeNames::Falling
+			: DefaultModeNames::Walking
 	};
-	MovementComponent->SetMovementMode(MovementMode);
-	GetWorld()->GetTimerManager().SetTimer(TraversalEndHandle, [&, this]()
-	{
-		OnTraversalEnd();
-	}, IgnoreCorrectionDelay, false);
+	MoverComponent->QueueNextMode(MovementMode);
 }
 
 void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 {
 	UpdateWarpTargets();
 
-	OnTraversalStart();
-
 	auto* MontageToPlay{const_cast<UAnimMontage*>(TraversalCheckResult.ChosenMontage.Get())};
-	AnimInstance->Montage_Play(MontageToPlay, TraversalCheckResult.PlayRate, EMontagePlayReturnType::MontageLength,
-	                           TraversalCheckResult.StartTime);
 
-	FOnMontageBlendingOutStarted BlendedOutEndedDelegate;
-	BlendedOutEndedDelegate.BindWeakLambda(this, [this](UAnimMontage* Montage, bool bInterrupted)
-	{
-		if (bInterrupted)
-		{
-			OnCompleteTraversal();
-		}
-	});
-	AnimInstance->Montage_SetBlendingOutDelegate(BlendedOutEndedDelegate, MontageToPlay);
+	const auto MontageProxy = UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
+		MoverComponent.Get(), MontageToPlay, TraversalCheckResult.PlayRate, TraversalCheckResult.StartTime);
 
-	FOnMontageEnded EndedDelegate;
-	EndedDelegate.BindWeakLambda(this, [this](UAnimMontage* Montage, bool bInterrupted)
-	{
-		if (!bInterrupted)
-		{
-			OnCompleteTraversal();
-		}
-	});
-	AnimInstance->Montage_SetEndDelegate(EndedDelegate, MontageToPlay);
+	MontageProxy->OnCompleted.AddDynamic(this, &ThisClass::OnCompleteTraversal);
+	MontageProxy->OnBlendOut.AddDynamic(this, &ThisClass::OnCompleteTraversal);
+	MontageProxy->OnInterrupted.AddDynamic(this, &ThisClass::OnCompleteTraversal);
 
 	bDoingTraversalAction = true;
 	CapsuleComponent->IgnoreComponentWhenMoving(TraversalCheckResult.HitComponent, true);
 
-	MovementComponent->SetMovementMode(MOVE_Flying);
+	MoverComponent->QueueNextMode(DefaultModeNames::Flying);
 }
 
 void UGASPTraversalComponent::Server_Traversal_Implementation(FTraversalCheckResult TraversalRep)

@@ -1,7 +1,7 @@
 ﻿#include "Actors/GASPCharacter.h"
 #include "Animation/GASPAnimInstance.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/GASPCharacterMovementComponent.h"
+#include "MovementSet/GASPMoverComponent.h"
 #include "Net/Core/PushModel/PushModel.h"
 
 static const FName NAME_pelvis(TEXT("pelvis"));
@@ -31,7 +31,8 @@ void AGASPCharacter::StartRagdolling()
 	}
 	else
 	{
-		MovementComponent->FlushServerMoves();
+		// TODO
+		// MovementComponent->FlushServerMoves();
 
 		ServerStartRagdolling();
 	}
@@ -74,8 +75,9 @@ void AGASPCharacter::StartRagdollingImplementation()
 	}
 
 	// Disable movement corrections and reset network smoothing.
-	MovementComponent->NetworkSmoothingMode = ENetworkSmoothingMode::Disabled;
-	MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = true;
+	// TODO
+	// MovementComponent->NetworkSmoothingMode = ENetworkSmoothingMode::Disabled;
+	// MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = true;
 
 	// Detach the mesh so that character transformation changes will not affect it in any way.
 	GetMesh()->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
@@ -125,7 +127,8 @@ void AGASPCharacter::StartRagdollingImplementation()
 	}
 
 	// Clear the character movement mode and set the locomotion action to ragdolling.
-	MovementComponent->SetMovementMode(MOVE_None);
+	// TODO
+	// MovementComponent->SetMovementMode(MOVE_None);
 
 	SetLocomotionAction(LocomotionActionTags::Ragdoll);
 	OnStartRagdolling();
@@ -260,12 +263,16 @@ FVector AGASPCharacter::RagdollTraceGround(bool& bGrounded) const
 
 	const FVector TraceStart{RagdollLocation.X, RagdollLocation.Y, RagdollLocation.Z + 2.0f * CapsuleRadius};
 	const FVector TraceEnd{RagdollLocation.X, RagdollLocation.Y, RagdollLocation.Z - CapsuleHalfHeight + CapsuleRadius};
+	
+	// TODO
+	// const auto CollisionChannel{MovementComponent->UpdatedComponent->GetCollisionObjectType()};
 
-	const auto CollisionChannel{MovementComponent->UpdatedComponent->GetCollisionObjectType()};
-
+	const auto CollisionChannel{ECC_WorldDynamic};
+	
 	FCollisionQueryParams QueryParameters{__FUNCTION__, false, this};
 	FCollisionResponseParams CollisionResponses;
-	MovementComponent->InitCollisionParams(QueryParameters, CollisionResponses);
+	// TODO
+	// MovementComponent->InitCollisionParams(QueryParameters, CollisionResponses);
 
 	FHitResult Hit;
 	bGrounded = GetWorld()->SweepSingleByChannel(Hit, TraceStart, TraceEnd, FQuat::Identity,
@@ -275,7 +282,7 @@ FVector AGASPCharacter::RagdollTraceGround(bool& bGrounded) const
 	return FVector{
 		RagdollLocation.X, RagdollLocation.Y,
 		bGrounded
-			? Hit.Location.Z + CapsuleHalfHeight - CapsuleRadius + UCharacterMovementComponent::MIN_FLOOR_DIST
+			? Hit.Location.Z + CapsuleHalfHeight - CapsuleRadius + /**MIN_FLOOR_DIST*/ 1.9f
 			: RagdollLocation.Z
 	};
 }
@@ -366,8 +373,9 @@ void AGASPCharacter::StopRagdollingImplementation()
 
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
-	MovementComponent->NetworkSmoothingMode = ENetworkSmoothingMode::Exponential;
-	MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = false;
+	// TODO
+	// MovementComponent->NetworkSmoothingMode = ENetworkSmoothingMode::Exponential;
+	// MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = false;
 
 	bool bGrounded;
 	const auto NewActorLocation{RagdollTraceGround(bGrounded)};
@@ -384,9 +392,13 @@ void AGASPCharacter::StopRagdollingImplementation()
 	// Attach the mesh back and restore its default relative location.
 	const auto& ActorTransform{GetActorTransform()};
 
-	GetMesh()->SetWorldLocationAndRotationNoPhysics(ActorTransform.TransformPositionNoScale(GetBaseTranslationOffset()),
-	                                                ActorTransform.TransformRotation(
-		                                                GetBaseRotationOffset()).Rotator());
+	// TODO
+	// GetMesh()->SetWorldLocationAndRotationNoPhysics(ActorTransform.TransformPositionNoScale(GetBaseTranslationOffset()),
+	//                                                 ActorTransform.TransformRotation(
+	// 	                                                GetBaseRotationOffset()).Rotator());
+	GetMesh()->SetWorldLocationAndRotationNoPhysics(ActorTransform.TransformPositionNoScale(FVector::OneVector),
+												ActorTransform.TransformRotation(
+													FQuat::Identity).Rotator());
 
 	GetMesh()->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::KeepWorldTransform);
 
@@ -419,13 +431,15 @@ void AGASPCharacter::StopRagdollingImplementation()
 
 	if (bGrounded)
 	{
-		MovementComponent->SetMovementMode(MOVE_Walking);
+		GetMoverComponent()->QueueNextMode(DefaultModeNames::Walking);
+		// MovementComponent->SetMovementMode(MOVE_Walking);
 		AnimationInstance->Montage_Play(SelectGetUpMontage(bRagdollFacingUpward));
 	}
 	else
 	{
-		MovementComponent->SetMovementMode(MOVE_Falling);
-		MovementComponent->Velocity = RagdollingState.Velocity;
+		GetMoverComponent()->QueueNextMode(DefaultModeNames::Falling);
+		//TODO
+		//MovementComponent->Velocity = RagdollingState.Velocity;
 	}
 
 	SetLocomotionAction(FGameplayTag::EmptyTag);

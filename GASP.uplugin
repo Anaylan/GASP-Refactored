@@ -85,6 +85,38 @@
     {
       "Name": "DeformerGraph",
       "Enabled": true
+    },
+    {
+      "Name": "RigLogic",
+      "Enabled": true
+    },
+    {
+      "Name": "Mover",
+      "Enabled": true
+    },
+    {
+      "Name": "NetworkPrediction",
+      "Enabled": true
+    },
+    {
+      "Name": "DrawDebugLibrary",
+      "Enabled": true
+    },
+    {
+      "Name": "SmartObjects",
+      "Enabled": true
+    },
+    {
+      "Name": "Locomotor",
+      "Enabled": true
+    },
+    {
+      "Name": "CurveExpression",
+      "Enabled": true
+    },
+    {
+      "Name": "GameplayInteractions",
+      "Enabled": true
     }
   ]
 }

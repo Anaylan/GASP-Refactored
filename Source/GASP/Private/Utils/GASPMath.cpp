@@ -62,7 +62,7 @@ EMovementDirection FGASPMath::GetMovementDirection(const float Angle, const floa
 
 	if (Angle >= ForwardHalfAngle - AngleThreshold && Angle <= 180.0f - ForwardHalfAngle + AngleThreshold)
 	{
-		return EMovementDirection::RR;
+		return EMovementDirection::RL;
 	}
 
 	if (Angle <= -(ForwardHalfAngle - AngleThreshold) && Angle >= -(180.0f - ForwardHalfAngle + AngleThreshold))
@@ -71,4 +71,44 @@ EMovementDirection FGASPMath::GetMovementDirection(const float Angle, const floa
 	}
 
 	return EMovementDirection::B;
+}
+
+EMovementDirection FGASPMath::GetMovementDirectionFromThreshold(const FVector4f& Thresholds, const float Direction)
+{
+	if (Direction >= Thresholds.X && Direction <= Thresholds.Y)
+	{
+		return EMovementDirection::F;
+	}
+	if (Direction >= Thresholds.Z && Direction <= Thresholds.X)
+	{
+		return EMovementDirection::LL;
+	}
+	if (Direction >= Thresholds.Y && Direction <= Thresholds.W)
+	{
+		return EMovementDirection::RL;
+	}
+
+	return EMovementDirection::B;
+}
+
+float FGASPMath::GetForwardAngle(const EMovementDirection& Direction,
+                                 const int32 StyleIndex)
+{
+	switch (StyleIndex)
+	{
+	case 1:
+		if (Direction == EMovementDirection::B)
+		{
+			return 120.f;
+		}
+		return 140.f;
+	case 2:
+		return 180.f;
+	default:
+		if (Direction == EMovementDirection::F || Direction == EMovementDirection::B)
+		{
+			return 60.f;
+		}
+		return 40.f;
+	}
 }

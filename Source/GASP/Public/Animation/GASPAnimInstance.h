@@ -9,9 +9,12 @@
 #include "BoneControllers/AnimNode_OrientationWarping.h"
 #include "PoseSearch/PoseSearchLibrary.h"
 #include "PoseSearch/PoseSearchTrajectoryLibrary.h"
+#include "Types/EnumTypes.h"
 #include "Types/StructTypes.h"
 #include "Types/TagTypes.h"
 #include "GASPAnimInstance.generated.h"
+
+class UMoverTrajectoryPredictor;
 
 /**
  *
@@ -31,8 +34,11 @@ protected:
 	TWeakObjectPtr<class AGASPCharacter> CachedCharacter{};
 
 	UPROPERTY(BlueprintReadOnly, Category = "References", Transient)
-	TWeakObjectPtr<class UGASPCharacterMovementComponent> CachedMovement{};
-
+	TWeakObjectPtr<class UGASPMoverComponent> CachedMovement{};
+	
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<UMoverTrajectoryPredictor> Predictor;
+	
 	/******************
 	 * Character state *
 	 ******************/
@@ -70,6 +76,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Additive|Poses", Transient)
 	FBlendStackMachine BlendStackMachine;
 
+	UPROPERTY(BlueprintReadOnly, Category = "MotionMatching")
+	FTrajectoryInfo TrajectoryInfo;
+	
 	UPROPERTY(BlueprintReadOnly, Category = "CharacterInformation|PreviousValues", Transient)
 	FGameplayTag PreviousStanceMode{FGameplayTag::EmptyTag};
 	UPROPERTY(BlueprintReadOnly, Category = "CharacterInformation|PreviousValues", Transient)
@@ -94,11 +103,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category="PoseSearchData|Trajectory", BlueprintReadOnly, Transient)
 	FTransformTrajectory Trajectory{};
-	UPROPERTY(EditAnywhere, Category="PoseSearchData|Trajectory", BlueprintReadOnly)
-	FPoseSearchTrajectoryData TrajectoryGenerationData_Idle{};
-	UPROPERTY(EditAnywhere, Category="PoseSearchData|Trajectory", BlueprintReadOnly)
-	FPoseSearchTrajectoryData TrajectoryGenerationData_Moving{};
-
+	
 	UPROPERTY(EditAnywhere, Category="Movement|FootPlacement", BlueprintReadOnly)
 	FFootPlacementPlantSettings PlantSettings_Default{};
 	UPROPERTY(EditAnywhere, Category="Movement|FootPlacement", BlueprintReadOnly)
@@ -164,22 +169,21 @@ protected:
 	void RefreshRagdollValues(const float DeltaSeconds);
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
 	void RefreshTrajectory(float DeltaSeconds);
-	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
-	void RefreshMovementDirection(float DeltaSeconds);
 
+	UFUNCTION(BlueprintPure)
+	[[maybe_unused]] float GetTotalFacingDelta(TArray<float> Times) const;
+	
 	/**************
 	 * Aim Offsets *
 	 **************/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MovementInformation|General")
-	float HeavyLandSpeedThreshold{700.f};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MovementInformation|General")
-	bool bLanded{false};
+	float HeavyLandSpeedThreshold{700.f};;
 	UPROPERTY(BlueprintReadOnly, Category = "MovementInformation|General")
 	int32 MMDatabaseLOD{0};
 	UPROPERTY(BlueprintReadOnly, Category = "MovementInformation|General")
-	uint8 bOffsetRootBoneEnabled : 1 {true};
+	int32 LocomotionSetup{0};
 	UPROPERTY(BlueprintReadOnly, Category = "MovementInformation|General")
-	uint8 bUseExperimentalStateMachine : 1 {false};
+	uint8 bOffsetRootBoneEnabled : 1 {true};
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "StateMachine|Configuration")
 	TMap<FGameplayTag, FPivotSettings> PivotSettings{
 		{GaitTags::Walk, {{50.f, 200.f}, FVector4f(150.f, 200.f, 70.f, 60.f)}},
@@ -192,16 +196,15 @@ public:
 	bool IsEnabledAO() const;
 	UFUNCTION(BlueprintPure, Category = "AimOffset", meta = (BlueprintThreadSafe))
 	FVector2D GetAOValue() const;
-
+	UFUNCTION(BlueprintPure, Category = "AimOffset", meta = (BlueprintThreadSafe))
+	bool IsCircling() const;
 	UFUNCTION(BlueprintPure, Category = "Overlay", meta = (BlueprintThreadSafe))
 	bool CanOverlayTransition() const;
 
-	UFUNCTION()
-	void OnLanded(const FHitResult& HitResult);
 	UFUNCTION(BlueprintImplementableEvent)
-	void OnOverlayModeChanged(FGameplayTag OldOverlayMode);
+	void OnOverlayModeChanged(FGameplayTag OldOverlayMode, FGameplayTag NewGameplayTag);
 	UFUNCTION(BlueprintImplementableEvent)
-	void OnPoseModeChanged(FGameplayTag OldGameplayTag);
+	void OnPoseModeChanged(FGameplayTag OldGameplayTag, FGameplayTag NewGameplayTag);
 
 	UFUNCTION(BlueprintPure, Category = "BlendStack", meta = (BlueprintThreadSafe))
 	EPoseSearchInterruptMode GetMatchingInterruptMode() const;
