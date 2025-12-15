@@ -1,9 +1,56 @@
 #pragma once
 
 #include "GameplayTags.h"
-#include "Curves/CurveFloat.h"
 #include "StructTypes.generated.h"
 
+template <typename T>
+struct TStateWrapper
+{
+	T Current{};
+	T LastFrame{};
+	T Recent{};
+
+	float TimeInState{0.0f};
+	float LastStateTime{0.0f};
+
+	explicit TStateWrapper(T DefaultState)
+	{
+		Current = LastFrame = Recent = DefaultState;
+	}
+
+	void Update(const T& NewState, const float DeltaTime, const float RecentLimit)
+	{
+		LastFrame = Current;
+		Current = NewState;
+
+		if (Current != LastFrame)
+		{
+			LastStateTime = TimeInState;
+			TimeInState = 0.0f;
+		}
+		else
+		{
+			TimeInState += DeltaTime;
+			if (TimeInState >= RecentLimit)
+			{
+				Recent = Current;
+			}
+		}
+	}
+};
+
+USTRUCT(BlueprintType)
+struct FAnimConfiguration
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")
+	float MaxTurnInPlaceAngle{50.f};
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")
+	float SpinTransitionAngle{130.f};
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")
+	float TeleportThreshold{50.f};
+};
 
 /**
  *
@@ -13,12 +60,9 @@ struct GASP_API FCharacterInfo
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")
-	float MaxTurnInPlaceAngle{50.f};
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")
-	float SpinTransitionAngle{130.f};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Configuration")
 	float FlailRate{0.f};
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (ClampMin = 0, ForceUnits = "s"))
 	float Speed{0.f};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -29,14 +73,27 @@ struct GASP_API FCharacterInfo
 	FVector Acceleration{FVector::ZeroVector};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
 	FVector VelocityAcceleration{FVector::ZeroVector};
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
 	FTransform RootTransform{FTransform::Identity};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
 	FTransform ActorTransform{FTransform::Identity};
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
 	FVector SmoothedGroundNormal{FVector::ZeroVector};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
 	FVector RelativeAcceleration{FVector::ZeroVector};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
+	FVector FloorLocation{FVector::ZeroVector};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
+	FVector FloorNormal{FVector::ZeroVector};
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
+	FRotator OrientationIntent{FRotator::ZeroRotator};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
+	FRotator AimingRotation{FRotator::ZeroRotator};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
+	FRotator RootOffsetRotation{FRotator::ZeroRotator};
 };
 
 USTRUCT(BlueprintType)
@@ -69,6 +126,8 @@ struct GASP_API FTrajectoryInfo
 
 	UPROPERTY(BlueprintReadOnly)
 	FRotator FutureFacing{FRotator::ZeroRotator};
+	UPROPERTY(BlueprintReadOnly)
+	FRotator FutureFacingOnTransitionStart{FRotator::ZeroRotator};
 };
 
 /**
@@ -82,6 +141,8 @@ struct GASP_API FMotionMatchingInfo
 	UPROPERTY(BlueprintReadOnly)
 	TWeakObjectPtr<const class UPoseSearchDatabase> PoseSearchDatabase{};
 	UPROPERTY(BlueprintReadOnly)
+	TArray<TObjectPtr<UObject>> Databases{};
+	UPROPERTY(BlueprintReadOnly)
 	FVector LastNonZeroVector{FVector::ZeroVector};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FName> DatabaseTags{};
@@ -89,14 +150,20 @@ struct GASP_API FMotionMatchingInfo
 	float OrientationAlpha{.2f};
 	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
 	float ProceduralTargetTime{.2f};
+	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	float DesiredFacingTime{.5f};
 	UPROPERTY(BlueprintReadOnly)
 	float PreviousDesiredYawRotation{0.f};
 	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
 	float AnimTime{0.f};
 	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
 	float PlayRate{0.f};
+	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	float StrafeWarpAlpha{0.f};
 	UPROPERTY(BlueprintReadOnly)
 	TWeakObjectPtr<class UAnimationAsset> AnimAsset;
+	UPROPERTY(BlueprintReadOnly)
+	uint8 bActive : 1{false};
 };
 
 /**
@@ -110,9 +177,11 @@ struct GASP_API FAnimUtilityNames
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName MovingTraversalCurveName{TEXT("MovingTraversal")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FName EnableMotionWarpingCurveName{TEXT("Enable_OrientationWarping")};
+	FName EnableWarpingCurveName{TEXT("Enable_Warping")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FName SteeringTargetTime{TEXT("Enable_OrientationWarping")};
+	FName EnableStrafeWarpingName{TEXT("Enable_StrafeWarping")};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FName SteeringTargetTime{TEXT("SteeringTargetTime")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName DisableAOCurveName{TEXT("Disable_AO")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

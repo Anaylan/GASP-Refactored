@@ -1,4 +1,6 @@
 ﻿#include "Animation/Notifies/AnimNotifyState_EarlyTransition.h"
+
+#include "Animation/AnimNotifyLibrary.h"
 #include "Animation/GASPAnimInstance.h"
 #include "Types/EnumTypes.h"
 #include "Utils/GASPBlueprintLibrary.h"
@@ -17,18 +19,13 @@ void UAnimNotifyState_EarlyTransition::NotifyTick(USkeletalMeshComponent* MeshCo
 {
 	Super::NotifyTick(MeshComp, Animation, FrameDeltaTime, EventReference);
 
-	if (!IsValid(MeshComp))
+	if (!IsValid(MeshComp) || EventReference.IsActiveContext())
 	{
 		return;
 	}
 
 	auto* AnimInstance = static_cast<UGASPAnimInstance*>(MeshComp->GetAnimInstance());
 	if (!IsValid(AnimInstance))
-	{
-		return;
-	}
-
-	if (EventReference.IsActiveContext())
 	{
 		return;
 	}
@@ -54,8 +51,10 @@ void UAnimNotifyState_EarlyTransition::NotifyTick(USkeletalMeshComponent* MeshCo
 	case EEarlyTransitionDestination::ReTransition:
 		AnimInstance->bNotifyTransition_ReTransition = true;
 		break;
-	default:
+	case EEarlyTransitionDestination::TransitionToLoop:
 		AnimInstance->bNotifyTransition_ToLoop = true;
+		break;
+	default:
 		break;
 	}
 }

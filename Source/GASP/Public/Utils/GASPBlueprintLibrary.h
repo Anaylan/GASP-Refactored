@@ -2,8 +2,10 @@
 
 #include "GameplayTagContainer.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Types/EnumTypes.h"
 #include "GASPBlueprintLibrary.generated.h"
 
+struct FGASPMoverInputs;
 /**
  * 
  */
@@ -26,4 +28,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "GASP|Utility",
 		meta = (AutoCreateRefTerm = "GameplayTag", ReturnDisplayName = "All Child Tags"))
 	static FGameplayTagContainer GetAllChildTags(const FGameplayTag& GameplayTag);
+	
+	UFUNCTION(BlueprintPure, Category = "GASP|Utility")
+	static FVector4 GetDirectionThresholds(EMovementDirection MovementDirection, int32 Style);
 };

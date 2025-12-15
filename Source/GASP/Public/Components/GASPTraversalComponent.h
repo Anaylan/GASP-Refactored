@@ -24,10 +24,6 @@ struct GASP_API FTraversalChooserInput
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traversal")
 	FGameplayTag ActionType{FGameplayTag::EmptyTag};
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traversal")
-	FGameplayTag Gait{FGameplayTag::EmptyTag};
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traversal")
-	TEnumAsByte<EMovementMode> MovementMode{MOVE_None};
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traversal")
 	FGameplayTagContainer StateContainer{};
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Traversal")
 	float Speed{0.0f};
@@ -174,6 +170,8 @@ protected:
 	 * Called when the game starts or when spawned
 	 */
 	virtual void BeginPlay() override;
+
+	virtual void InitializeComponent() override;
 
 	/**
 	 * Configures network replication for this component

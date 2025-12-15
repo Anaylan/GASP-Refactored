@@ -11,8 +11,8 @@
 class UNavMoverComponent;
 class UGASPMoverComponent;
 
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStateChanged, FGameplayTag, OldGameplayTag, FGameplayTag, NewGameplayTag);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStateChanged, FGameplayTag, OldGameplayTag, FGameplayTag,
+                                             NewGameplayTag);
 
 UCLASS()
 class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterface
@@ -31,8 +31,6 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	TObjectPtr<class UCapsuleComponent> CapsuleComponent;
 
-	uint8 bHasProduceInputBpFunc : 1;
-
 protected:
 	UPROPERTY(EditAnywhere, Category="PoseSearchData|Choosers", BlueprintReadOnly)
 	TObjectPtr<class UChooserTable> OverlayTable{nullptr};
@@ -49,10 +47,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components", Replicated)
 	TObjectPtr<class UGASPTraversalComponent> TraversalComponent{};
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintGetter=GetMoverInputs_PreSim, Replicated)
 	FGASPMoverInputs MoverCustomInputs_PreSim;
-	UPROPERTY(BlueprintGetter=GetMoverInputs_PostSim)
-	FGASPMoverInputs MoverCustomInputs_PostSim;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	FGASPInputState PlayerInputState;
@@ -75,8 +71,6 @@ protected:
 	FGameplayTag Gait{GaitTags::Run};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_RotationMode, Transient)
 	FGameplayTag RotationMode{RotationTags::Strafe};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_MovementState, Transient)
-	FGameplayTag MovementState{MovementStateTags::Idle};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_MovementMode, Transient)
 	FGameplayTag MovementMode{MovementModeTags::Grounded};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_StanceMode, Transient)
@@ -125,17 +119,10 @@ protected:
 
 	UFUNCTION(BlueprintPure, Category = "Input")
 	FVector2D GetMovementInputScaleValue(const FVector2D InVector) const;
-
-	// Entry point for input production. Do not override. To extend in derived character types, override OnProduceInput for native types or implement "Produce Input" blueprint event
-	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
-
 	void GetMovementDirectionAddOffset(EMovementDirection& MovementDirection, float& RotationOffset);
-	// Override this function in native class to author input for the next simulation frame. Consider also calling Super method.
-	virtual void OnProduceInput(float DeltaMs, FMoverInputCmdContext& InputCmdResult);
 
-	// Implement this event in Blueprints to author input for the next simulation frame. Consider also calling Parent event.
-	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Produce Input", meta = (ScriptName = "OnProduceInput"))
-	FMoverInputCmdContext OnProduceInputInBlueprint(float DeltaMs, FMoverInputCmdContext InputCmd);
+	// Entry point for input production.
+	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
 
 	UPROPERTY(BlueprintReadOnly)
 	float ControlRotationRate{0.f};
@@ -144,22 +131,18 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	FRotator TwinStickAimRotation{FRotator::ZeroRotator};
 
-	virtual void RefreshInputMover();
 	virtual void RefreshFloorValues();
 	virtual void RefreshControlRotationRate(const float DeltaTime);
 	virtual void RefreshTwinStickMode();
 	virtual void RefreshRotationMode();
-	[[maybe_unused]] virtual void RefreshSlidingAudio();
+	virtual void RefreshSlidingAudio();
 
 public:
 	UPROPERTY(BlueprintReadOnly, Category=Character)
-	uint8 bPressedJump : 1;
+	uint8 bJustPressedJump : 1;
 
 	UFUNCTION(BlueprintPure)
-	const FGASPMoverInputs& GetMoverInputs_PostSim()
-	{
-		return MoverCustomInputs_PostSim;
-	}
+	const FGASPMoverInputs& GetMoverState() const;
 
 	UFUNCTION(BlueprintPure)
 	const FGASPMoverInputs& GetMoverInputs_PreSim()
@@ -198,6 +181,9 @@ public:
 
 	virtual void UpdateNavigationRelevance() override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector2D TwinStickAimDirection{FVector2D::ZeroVector};
+
 protected:
 	UPROPERTY(Category = Movement, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UGASPMoverComponent> CharacterMotionComponent;
@@ -223,8 +209,6 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnStateChanged RotationModeChanged;
 	UPROPERTY(BlueprintAssignable)
-	FOnStateChanged MovementStateChanged;
-	UPROPERTY(BlueprintAssignable)
 	FOnStateChanged StanceModeChanged;
 	UPROPERTY(BlueprintAssignable)
 	FOnStateChanged LocomotionActionChanged;
@@ -245,24 +229,18 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	// virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
-	// virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 
 	/****************************
 	 *		Movement States		*
 	 ****************************/
 	UFUNCTION(BlueprintCallable)
 	void SetGait(const FGameplayTag NewGait, bool bForce = false);
-
+	UFUNCTION(Server, Reliable)
+	void Server_SetGait(const FGameplayTag NewGait);
 	UFUNCTION(BlueprintCallable)
 	void SetRotationMode(const FGameplayTag NewRotationMode, const bool bForce = false);
 	UFUNCTION(Server, Reliable)
 	void Server_SetRotationMode(const FGameplayTag NewRotationMode);
-
-	UFUNCTION(BlueprintCallable)
-	void SetMovementState(const FGameplayTag NewMovementState, const bool bForce = false);
-	UFUNCTION(Server, Reliable)
-	void Server_SetMovementState(const FGameplayTag NewMovementState);
 
 	UFUNCTION(BlueprintCallable)
 	void SetStanceMode(const FGameplayTag NewStanceMode, const bool bForce = false);
@@ -338,12 +316,6 @@ public:
 	}
 
 	UFUNCTION(BlueprintGetter)
-	FORCEINLINE FGameplayTag GetMovementState() const
-	{
-		return MovementState;
-	}
-
-	UFUNCTION(BlueprintGetter)
 	FORCEINLINE FGameplayTag GetStanceMode() const
 	{
 		return StanceMode;
@@ -384,8 +356,6 @@ private:
 	virtual void OnRep_MovementMode(const FGameplayTag& OldMovementMode);
 	UFUNCTION()
 	virtual void OnRep_RotationMode(const FGameplayTag& OldRotationMode);
-	UFUNCTION()
-	virtual void OnRep_MovementState(const FGameplayTag& OldMovementState);
 	UFUNCTION()
 	virtual void OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAction);
 

@@ -14,7 +14,7 @@ AGASPCharacterExample::AGASPCharacterExample(const FObjectInitializer& ObjectIni
 
 	if (GetMesh())
 	{
-		GameplayCamera->SetupAttachment(GetMesh(), NAME_None);
+		GameplayCamera->SetupAttachment(GetMesh(), FName{TEXT("root")});
 		GameplayCamera->SetRelativeLocation(FVector::ZAxisVector * 100.f);
 	}
 }

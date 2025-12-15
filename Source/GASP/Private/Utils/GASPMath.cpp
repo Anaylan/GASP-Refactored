@@ -1,5 +1,6 @@
 #include "Utils/GASPMath.h"
 
+
 /**
  * Calculates the angle between a vector and a rotation in degrees.
  * Returns the signed angle between -180 and 180 degrees.
@@ -43,10 +44,8 @@ float FGASPMath::CalculateDirection(const FVector& Vector, const FRotator& Rotat
 	const FVector2f RightVector{-SinYaw, CosYaw}; // Optimized cross product for Z-up
 
 	// Calculate dot products
-	const float ForwardDot = NormalizedVelocity.X * ForwardVector.X +
-		NormalizedVelocity.Y * ForwardVector.Y;
-	const float RightDot = NormalizedVelocity.X * RightVector.X +
-		NormalizedVelocity.Y * RightVector.Y;
+	const float ForwardDot = NormalizedVelocity.X * ForwardVector.X + NormalizedVelocity.Y * ForwardVector.Y;
+	const float RightDot = NormalizedVelocity.X * RightVector.X + NormalizedVelocity.Y * RightVector.Y;
 
 	// Calculate angle and clamp between -180 and 180 degrees
 	return FMath::UnwindDegrees(FMath::RadiansToDegrees(FMath::Atan2(RightDot, ForwardDot)));
@@ -73,42 +72,21 @@ EMovementDirection FGASPMath::GetMovementDirection(const float Angle, const floa
 	return EMovementDirection::B;
 }
 
-EMovementDirection FGASPMath::GetMovementDirectionFromThreshold(const FVector4f& Thresholds, const float Direction)
+EMovementDirection FGASPMath::GetMovementDirectionFromThreshold(const FVector4& Thresholds, const float Direction)
 {
-	if (Direction >= Thresholds.X && Direction <= Thresholds.Y)
+	
+	if (FMath::IsWithinInclusive(Direction, Thresholds.X, Thresholds.Y))
 	{
 		return EMovementDirection::F;
 	}
-	if (Direction >= Thresholds.Z && Direction <= Thresholds.X)
+	if (FMath::IsWithinInclusive(Direction, Thresholds.Z, Thresholds.X))
 	{
 		return EMovementDirection::LL;
 	}
-	if (Direction >= Thresholds.Y && Direction <= Thresholds.W)
+	if (FMath::IsWithinInclusive(Direction, Thresholds.Y, Thresholds.W))
 	{
 		return EMovementDirection::RL;
 	}
 
 	return EMovementDirection::B;
-}
-
-float FGASPMath::GetForwardAngle(const EMovementDirection& Direction,
-                                 const int32 StyleIndex)
-{
-	switch (StyleIndex)
-	{
-	case 1:
-		if (Direction == EMovementDirection::B)
-		{
-			return 120.f;
-		}
-		return 140.f;
-	case 2:
-		return 180.f;
-	default:
-		if (Direction == EMovementDirection::F || Direction == EMovementDirection::B)
-		{
-			return 60.f;
-		}
-		return 40.f;
-	}
 }

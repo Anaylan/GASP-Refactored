@@ -14,8 +14,11 @@ void UMovementMode_Falling::GenerateMove_Implementation(const FMoverTickStartDat
 
 	Super::GenerateMove_Implementation(StartState, TimeStep, OutProposedMove);
 
-	auto OrientationRotation{CharacterInputs->OrientationIntent.ToOrientationRotator()};
-	OrientationRotation.Yaw += CharacterInputs->RotationOffset;
-	OutProposedMove.AngularVelocityDegrees = UMovementUtils::ComputeAngularVelocityDegrees(
-		StartingSyncState->GetOrientation_BaseSpace(), OrientationRotation, GetWorld()->GetDeltaSeconds(), 300.f);
+	if (CharacterInputs)
+	{
+		FRotator OrientationRotation{CharacterInputs->OrientationIntent.ToOrientationRotator()};
+		OrientationRotation.Yaw += CharacterInputs->RotationOffset;
+		OutProposedMove.AngularVelocityDegrees = UMovementUtils::ComputeAngularVelocityDegrees(
+			StartingSyncState->GetOrientation_BaseSpace(), OrientationRotation, GetWorld()->GetDeltaSeconds(), 300.f);
+	}
 }

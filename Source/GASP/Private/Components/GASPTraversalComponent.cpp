@@ -66,6 +66,11 @@ void UGASPTraversalComponent::BeginPlay()
 	{
 		AnimInstance = Cast<UGASPAnimInstance>(MeshComponent->GetAnimInstance());
 	}
+}
+
+void UGASPTraversalComponent::InitializeComponent()
+{
+	Super::InitializeComponent();
 
 	StreamableHandle = StreamableManager.RequestAsyncLoad(TraversalAnimationsChooserTable.ToSoftObjectPath(),
 	                                                      FStreamableDelegate::CreateLambda([this]()
@@ -338,13 +343,8 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	auto* ChooserTable{TraversalAnimationsChooserTable.LoadSynchronous()};
 	FTraversalChooserInput ChooserParameters;
 	ChooserParameters.ActionType = NewTraversalCheckResult.ActionType;
-	ChooserParameters.Gait = CharacterOwner->GetGait();
 	ChooserParameters.Speed = CharacterOwner->GetVelocity().Size2D();
-
-	// TODO: wtf? maybe change movement mode into state container?
-	// ChooserParameters.MovementMode = MovementModeMap.FindRef(MoverComponent->GetMovementModeName());
 	ChooserParameters.StateContainer = CharacterOwner->StateContainer;
-
 	ChooserParameters.bHasBackFloor = NewTraversalCheckResult.bHasBackFloor;
 	ChooserParameters.bHasBackLedge = NewTraversalCheckResult.bHasBackLedge;
 	ChooserParameters.bHasFrontLedge = NewTraversalCheckResult.bHasFrontLedge;
@@ -368,6 +368,7 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	 * performed, therefore exit the function. */
 	if (NewTraversalCheckResult.ActionType == FGameplayTag::EmptyTag)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Traversal: 366"));
 		return {true, false};
 	}
 
@@ -375,6 +376,7 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	 * custom channel within the following Motion Matching search. */
 	if (!AnimInstance.IsValid())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Traversal: 373"));
 		return {true, false};
 	}
 	auto* InteractableObject = Cast<IGASPInteractionTransformInterface>(AnimInstance);
@@ -406,7 +408,7 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	if (!IsValid(AnimationMontage))
 	{
 #if WITH_EDITOR && ALLOW_CONSOLE
-		GEngine->AddOnScreenDebugMessage(NULL, TraversalVar::DrawDebugDuration, FColor::Red,
+		GEngine->AddOnScreenDebugMessage(-1, TraversalVar::DrawDebugDuration, FColor::Red,
 		                                 FString::Printf(TEXT("Failed To Find Montage!")));
 #endif
 		return {true, false};
@@ -505,7 +507,7 @@ FComputeLedgeData UGASPTraversalComponent::ComputeLedgeData(FHitResult& HitResul
 	HitResult.ImpactPoint -= (HitResult.ImpactPoint - FVector::PointPlaneProject(
 		HitResult.GetComponent()->Bounds.Origin, HitResult.ImpactPoint, HitResult.ImpactNormal)).GetSafeNormal();
 
-	const FVector StartNormal{HitResult.ImpactNormal};
+	const auto StartNormal{HitResult.ImpactNormal};
 	const float TraceLength = HitResult.GetComponent()->Bounds.SphereRadius * 2;
 
 	const FVector AbsoluteObjectUpVector = HitResult.GetComponent()->GetUpVector() * FMath::Sign(
@@ -514,7 +516,7 @@ FComputeLedgeData UGASPTraversalComponent::ComputeLedgeData(FHitResult& HitResul
 	auto TraceCorner = TraceCorners(HitResult, FVector::CrossProduct(HitResult.ImpactNormal, AbsoluteObjectUpVector),
 	                                TraceLength);
 
-	float RightEdgeDistance{TraceCorner.DistanceToCorner};
+	const float RightEdgeDistance{TraceCorner.DistanceToCorner};
 	if (TraceCorner.bCloseToCorner)
 	{
 		HitResult.ImpactPoint = TraceCorner.OfsettedCornerPoint;
@@ -545,13 +547,12 @@ FComputeLedgeData UGASPTraversalComponent::ComputeLedgeData(FHitResult& HitResul
 		return {};
 	}
 
-	const FVector StartLedge{OutHit.ImpactPoint};
-	FVector EndNormal{FVector::ZeroVector};
-	FVector EndLedge{FVector::ZeroVector};
+	const auto StartLedge{OutHit.ImpactPoint};
+	auto EndNormal{FVector::ZeroVector};
+	auto EndLedge{FVector::ZeroVector};
 
 	const bool bHasBackLedge = HitResult.GetComponent()->LineTraceComponent(
-		OutHit, HitResult.ImpactPoint - HitResult.ImpactNormal * TraceLength, HitResult.ImpactPoint,
-		GetQueryParams());
+		OutHit, HitResult.ImpactPoint - HitResult.ImpactNormal * TraceLength, HitResult.ImpactPoint, GetQueryParams());
 
 	if (bHasBackLedge)
 	{

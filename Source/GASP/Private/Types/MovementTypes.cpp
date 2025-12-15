@@ -2,6 +2,7 @@
 
 bool FGASPMoverInputs::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
 {
+	Super::NetSerialize(Ar, Map, bOutSuccess);
 	RotationMode.NetSerialize(Ar, Map, bOutSuccess);
 	Gait.NetSerialize(Ar, Map, bOutSuccess);
 	Stance.NetSerialize(Ar, Map, bOutSuccess);
@@ -9,14 +10,15 @@ bool FGASPMoverInputs::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSu
 	Ar << ControlRotationRate;
 	Ar << RotationOffset;
 	Ar << MovementDirection;
-	Ar << FloorLocation;
-	Ar << FloorNormal;
-	Ar << AimingRotation;
 
-	return FCharacterDefaultInputs::NetSerialize(Ar, Map, bOutSuccess);
+	SerializeFixedVector<1, 16>(FloorLocation, Ar);
+	SerializeFixedVector<1, 16>(FloorNormal, Ar);
+	AimingRotation.SerializeCompressedShort(Ar);
+
+	return bOutSuccess;
 }
 
 void FGASPMoverInputs::ToString(FAnsiStringBuilderBase& Out) const
 {
-	FCharacterDefaultInputs::ToString(Out);
+	Super::ToString(Out);
 }
