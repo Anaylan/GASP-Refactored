@@ -85,7 +85,7 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 void AGASPCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	StateContainer.Reset();
 	NavMoverComponent = FindComponentByClass<UNavMoverComponent>();
 
@@ -100,7 +100,7 @@ void AGASPCharacter::BeginPlay()
 
 	OverlayModeChanged.AddDynamic(this, &ThisClass::OnOverlayModeChanged);
 	PoseModeChanged.AddDynamic(this, &ThisClass::OnPoseModeChanged);
-	
+
 	SetOverlayMode(InitialOverlayMode, true);
 	SetPoseMode(InitialPoseMode, true);
 	SetLocomotionAction(FGameplayTag::EmptyTag, true);
@@ -161,11 +161,11 @@ void AGASPCharacter::SetMovementMode(const FGameplayTag NewMovementMode, const b
 	{
 		StateContainer.RemoveTag(AllowedMovementMode);
 		StateContainer.AddTag(NewMovementMode);
-		
+
 		const auto OldMovementMode{AllowedMovementMode};
 		AllowedMovementMode = NewMovementMode;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, AllowedMovementMode, this);
-		
+
 		MovementModeChanged.Broadcast(OldMovementMode, AllowedMovementMode);
 	}
 }
@@ -206,7 +206,7 @@ void AGASPCharacter::SetStanceMode(const FGameplayTag NewStanceMode, const bool 
 	{
 		StateContainer.RemoveTag(AllowedStanceMode);
 		StateContainer.AddTag(NewStanceMode);
-		
+
 		const auto OldStanceMode{AllowedStanceMode};
 		AllowedStanceMode = NewStanceMode;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, AllowedStanceMode, this);
@@ -304,7 +304,7 @@ void AGASPCharacter::SetOverlayMode(const FGameplayTag NewOverlayMode, const boo
 	{
 		StateContainer.RemoveTag(OverlayMode);
 		StateContainer.AddTag(NewOverlayMode);
-		
+
 		const auto OldOverlayMode{OverlayMode};
 		OverlayMode = NewOverlayMode;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, OverlayMode, this);
@@ -322,7 +322,7 @@ void AGASPCharacter::SetPoseMode(const FGameplayTag NewPoseMode, const bool bFor
 	{
 		StateContainer.RemoveTag(PoseMode);
 		StateContainer.AddTag(NewPoseMode);
-		
+
 		const auto OldPoseMode{PoseMode};
 		PoseMode = NewPoseMode;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, PoseMode, this);
@@ -345,7 +345,7 @@ void AGASPCharacter::SetLocomotionAction(const FGameplayTag NewLocomotionAction,
 	{
 		StateContainer.RemoveTag(LocomotionAction);
 		StateContainer.AddTag(NewLocomotionAction);
-		
+
 		const auto OldLocomotionAction{LocomotionAction};
 		LocomotionAction = NewLocomotionAction;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, LocomotionAction, this);
@@ -467,10 +467,10 @@ void AGASPCharacter::GetMovementDirectionAddOffset(EMovementDirection& MovementD
 
 	MovementDirection = MoverInputs_PostSim.Gait != GaitTags::Sprint
 		                    ? FGASPMath::GetMovementDirectionFromThreshold(
-			                    UGASPBlueprintLibrary::GetDirectionThresholds(
-				                    MoverInputs_PostSim.MovementDirection, AllowedRotationMode == RotationTags::Aim
-					                                                           ? GeneralVars::AimStyle
-					                                                           : GeneralVars::StrafeStyle),
+			                    FGASPMath::GetDirectionThresholds(MoverInputs_PostSim.MovementDirection,
+			                                                      AllowedRotationMode == RotationTags::Aim
+				                                                      ? GeneralVars::AimStyle
+				                                                      : GeneralVars::StrafeStyle),
 			                    MovementAngle)
 		                    : EMovementDirection::F;
 

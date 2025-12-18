@@ -28,21 +28,5 @@ FGameplayTagContainer UGASPBlueprintLibrary::GetAllChildTags(const FGameplayTag&
 
 FVector4 UGASPBlueprintLibrary::GetDirectionThresholds(const EMovementDirection MovementDirection, int32 Style)
 {
-	switch (Style)
-	{
-	case 0:
-		if (MovementDirection == EMovementDirection::B || MovementDirection == EMovementDirection::F)
-		{
-			return FVector4{-60.f, 60.f, -120.f, 120.f};
-		}
-		return FVector4{-40.f, 40.f, -140.f, 140.f};
-	case 1:
-		if (MovementDirection == EMovementDirection::B)
-		{
-			return FVector4{-120.f, 120.f, -120.f, 120.f};
-		}
-		return FVector4{-140.f, 140.f, -140.f, 140.f};
-	default:
-		return FVector4{-180.f, 180.f, -180.f, 180.f};
-	}
+	return FGASPMath::GetDirectionThresholds(MovementDirection, Style);
 }

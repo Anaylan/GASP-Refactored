@@ -15,4 +15,5 @@ struct GASP_API FGASPMath
 	
 	static EMovementDirection GetMovementDirectionFromThreshold(const FVector4& Thresholds, const float Direction);
 	
+	static FVector4 GetDirectionThresholds(EMovementDirection MovementDirection, int32 Style);
 };

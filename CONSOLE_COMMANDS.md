@@ -2,12 +2,29 @@
 
 This document lists all available console commands for the GASP (Game Animation Sample Refactored) plugin.
 
+## Character Commands
+
+### Strafe style
+- **`gasp.movement.style.strafe`** (int32, default: 0)
+  - Sets threshold style for strafe rotation mode
+  - Usage: `gasp.movement.style.strafe 2`
+
+### Aim style
+- **`gasp.movement.style.aim`** (int32, default: 0)
+  - Sets threshold style for aim rotation mode
+  - Usage: `gasp.movement.style.aim 2`
+
+### Control style
+- **`gasp.control.style`** (int32, default: 0)
+  - Sets control style default\twinstick
+  - Usage: `gasp.control.style 1`
+
 ## Animation Commands
 
 ### State Machine
-- **`gasp.statemachine.enabled`** (bool, default: false)
-  - Enables experimental state machine functionality
-  - Usage: `gasp.statemachine.enabled 1`
+- **`gasp.locomotion.style`** (int, default: 0)
+  - Switch locomotion style: motion matching\state machine
+  - Usage: `gasp.locomotion.style 1`
 
 ### Root Bone Offset
 - **`gasp.offsetrootbone.enabled`** (bool, default: false)
@@ -18,6 +35,7 @@ This document lists all available console commands for the GASP (Game Animation 
 - **`gasp.motionmatching.LOD`** (int32, default: 0)
   - Sets LOD level for motion matching database
   - Usage: `gasp.motionmatching.LOD 2`
+
 
 ## Traversal Commands
 

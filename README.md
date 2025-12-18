@@ -37,12 +37,6 @@ For more information, see the [Releases](https://github.com/Anaylan/GASP-Refacto
 
 GASP provides several console commands for debugging and configuration. See [CONSOLE_COMMANDS.md](CONSOLE_COMMANDS.md) for a complete list of available commands.
 
-Quick reference:
-- `gasp.statemachine.enabled 1` - Enable experimental state machine
-- `gasp.traversal.DrawDebugLevel 1` - Enable traversal debug visualization
-- `gasp.DrawVisLogShapesForFoleySounds.enabled 1` - Enable foley sound debug shapes
-
-
 ## License & Contribution
 
 GASP Refactored is licensed under the MIT License, see [LICENSE.md](LICENSE.md) for more information. Other developers are encouraged to fork the repository, open issues & pull requests to help the development.
