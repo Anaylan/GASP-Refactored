@@ -2,6 +2,8 @@
 #include "MoverSimulationTypes.h"
 #include "Types/MovementTypes.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(MovementModeTransition_FromSlide)
+
 FTransitionEvalResult UMovementModeTransition_FromSlide::Evaluate_Implementation(
 	const FSimulationTickParams& Params) const
 {

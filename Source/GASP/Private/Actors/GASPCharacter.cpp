@@ -77,16 +77,19 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 	CharacterMotionComponent = CreateDefaultSubobject<UGASPMoverComponent>(TEXT("MoverComponent"));
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarping"));
 	TraversalComponent = CreateDefaultSubobject<UGASPTraversalComponent>(TEXT("TraversalComponent"));
+
+	// NavMoverComponent = CreateDefaultSubobject<UNavMoverComponent>(TEXT("NavMoverComponent"));
 }
 
 // Called when the game starts or when spawned
 void AGASPCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
+	StateContainer.Reset();
 	NavMoverComponent = FindComponentByClass<UNavMoverComponent>();
 
-	if (auto MoverComp = GetMoverComponent())
+	if (const auto MoverComp = GetMoverComponent())
 	{
 		MoverComp->OnMovementModeChanged.AddDynamic(this, &ThisClass::OnMovementModeChanged);
 		MoverComp->OnPreSimulationTick.AddDynamic(this, &ThisClass::OnPreSimulateTick);
@@ -95,16 +98,16 @@ void AGASPCharacter::BeginPlay()
 		GetMesh()->AddTickPrerequisiteComponent(MoverComp);
 	}
 
-	MoverCustomInputs_PreSim.OrientationIntent = GetActorForwardVector();
-
 	OverlayModeChanged.AddDynamic(this, &ThisClass::OnOverlayModeChanged);
 	PoseModeChanged.AddDynamic(this, &ThisClass::OnPoseModeChanged);
-
-	SetOverlayMode(OverlayMode, true);
-	SetPoseMode(PoseMode, true);
+	
+	SetOverlayMode(InitialOverlayMode, true);
+	SetPoseMode(InitialPoseMode, true);
 	SetLocomotionAction(FGameplayTag::EmptyTag, true);
 
 	GetMesh()->AddTickPrerequisiteActor(this);
+
+	ensureAlwaysMsgf(RotationCurveTable, TEXT("RotationCurveTable must be configured in character blueprint"));
 }
 
 void AGASPCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -112,6 +115,13 @@ void AGASPCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 
 	GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
+
+	if (const auto MoverComp = GetMoverComponent())
+	{
+		MoverComp->OnMovementModeChanged.RemoveAll(this);
+		MoverComp->OnPreSimulationTick.RemoveAll(this);
+		MoverComp->OnStanceChanged.RemoveAll(this);
+	}
 }
 
 // Called every frame
@@ -123,6 +133,7 @@ void AGASPCharacter::Tick(float DeltaTime)
 
 	Super::Tick(DeltaTime);
 
+	RefreshMoverState();
 	RefreshFloorValues();
 	RefreshControlRotationRate(DeltaTime);
 	RefreshTwinStickMode();
@@ -132,14 +143,75 @@ void AGASPCharacter::Tick(float DeltaTime)
 		RefreshRagdolling(DeltaTime);
 	}
 
-	if (MovementMode == MovementModeTags::Grounded)
+	if (AllowedMovementMode == MovementModeTags::Grounded)
 	{
-		RefreshRotationMode();
 		RefreshGait();
+		RefreshRotationMode();
 	}
-	else if (MovementMode == MovementModeTags::Slide)
+	// TODO: Maybe we should transfer audio in animation?
+	else if (AllowedMovementMode == MovementModeTags::Slide)
 	{
 		RefreshSlidingAudio();
+	}
+}
+
+void AGASPCharacter::SetMovementMode(const FGameplayTag NewMovementMode, const bool bForce)
+{
+	if (NewMovementMode != AllowedMovementMode || bForce)
+	{
+		StateContainer.RemoveTag(AllowedMovementMode);
+		StateContainer.AddTag(NewMovementMode);
+		
+		const auto OldMovementMode{AllowedMovementMode};
+		AllowedMovementMode = NewMovementMode;
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, AllowedMovementMode, this);
+		
+		MovementModeChanged.Broadcast(OldMovementMode, AllowedMovementMode);
+	}
+}
+
+void AGASPCharacter::SetGait(const FGameplayTag NewGait, const bool bForce)
+{
+	if (NewGait != AllowedGait || bForce)
+	{
+		StateContainer.RemoveTag(AllowedGait);
+		StateContainer.AddTag(NewGait);
+
+		const auto OldGait{AllowedGait};
+		AllowedGait = NewGait;
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, AllowedGait, this);
+
+		GaitChanged.Broadcast(OldGait, AllowedGait);
+	}
+}
+
+void AGASPCharacter::SetRotationMode(const FGameplayTag NewRotationMode, const bool bForce)
+{
+	if (NewRotationMode != AllowedRotationMode || bForce)
+	{
+		StateContainer.RemoveTag(AllowedRotationMode);
+		StateContainer.AddTag(NewRotationMode);
+
+		const auto OldRotationMode{AllowedRotationMode};
+		AllowedRotationMode = NewRotationMode;
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, AllowedRotationMode, this);
+
+		RotationModeChanged.Broadcast(OldRotationMode, AllowedRotationMode);
+	}
+}
+
+void AGASPCharacter::SetStanceMode(const FGameplayTag NewStanceMode, const bool bForce)
+{
+	if (NewStanceMode != AllowedStanceMode || bForce)
+	{
+		StateContainer.RemoveTag(AllowedStanceMode);
+		StateContainer.AddTag(NewStanceMode);
+		
+		const auto OldStanceMode{AllowedStanceMode};
+		AllowedStanceMode = NewStanceMode;
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, AllowedStanceMode, this);
+
+		StanceModeChanged.Broadcast(OldStanceMode, AllowedStanceMode);
 	}
 }
 
@@ -162,6 +234,17 @@ void AGASPCharacter::PostInitializeComponents()
 	{
 		TwinStickMode = CVar ? CVar->GetInt() == 1 : false;
 	});
+
+	// MoverInputs_PreSim.OrientationIntent = GetActorForwardVector();
+}
+
+void AGASPCharacter::RefreshMoverState()
+{
+	auto [InputCollection] = GetMoverComponent()->GetLastInputCmd();
+	if (auto* Collection = InputCollection.FindDataByType<FGASPMoverInputs>())
+	{
+		MoverInputs_PostSim = *Collection;
+	}
 }
 
 void AGASPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -173,11 +256,13 @@ void AGASPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 
 	// Replicate to everyone except owner
 	Parameters.Condition = COND_SkipOwner;
-	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, RotationMode, Parameters);
-	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, MovementMode, Parameters);
-	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, StanceMode, Parameters);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, AllowedGait, Parameters);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, AllowedRotationMode, Parameters);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, AllowedMovementMode, Parameters);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, AllowedStanceMode, Parameters);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, LocomotionAction, Parameters);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, TraversalComponent, Parameters);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, MoverInputs_PostSim, Parameters);
 
 	// Replicate to everyone
 	Parameters.Condition = COND_None;
@@ -186,90 +271,18 @@ void AGASPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, RagdollTargetLocation, Parameters);
 }
 
-void AGASPCharacter::SetGait(const FGameplayTag NewGait, const bool bForce)
-{
-	if (NewGait != Gait || bForce)
-	{
-		const auto OldGait{Gait};
-		Gait = NewGait;
-
-		if (GetLocalRole() == ROLE_AutonomousProxy && IsValid(GetNetConnection()))
-		{
-			Server_SetGait(NewGait);
-		}
-		GaitChanged.Broadcast(OldGait, Gait);
-	}
-}
-
-void AGASPCharacter::Server_SetGait_Implementation(const FGameplayTag NewGait)
-{
-	SetGait(NewGait);
-}
-
-void AGASPCharacter::SetRotationMode(const FGameplayTag NewRotationMode, const bool bForce)
-{
-	if (NewRotationMode != RotationMode || bForce)
-	{
-		const auto OldRotationMode{RotationMode};
-		RotationMode = NewRotationMode;
-		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, RotationMode, this);
-
-		if (GetLocalRole() == ROLE_AutonomousProxy && IsValid(GetNetConnection()))
-		{
-			Server_SetRotationMode(NewRotationMode);
-		}
-		RotationModeChanged.Broadcast(OldRotationMode, RotationMode);
-	}
-}
-
-void AGASPCharacter::SetMovementMode(const FGameplayTag NewMovementMode, const bool bForce)
-{
-	if (NewMovementMode != MovementMode || bForce)
-	{
-		auto OldMovementMode{MovementMode};
-		MovementMode = NewMovementMode;
-		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, MovementMode, this);
-
-		StateContainer.RemoveTag(OldMovementMode);
-		StateContainer.AddTagFast(MovementMode);
-
-		MovementModeChanged.Broadcast(OldMovementMode, MovementMode);
-	}
-}
-
-void AGASPCharacter::SetStanceMode(const FGameplayTag NewStanceMode, const bool bForce)
-{
-	if (StanceMode != NewStanceMode || bForce)
-	{
-		const auto OldStanceMode{StanceMode};
-		StanceMode = NewStanceMode;
-		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, StanceMode, this);
-
-		if (GetLocalRole() == ROLE_AutonomousProxy && IsValid(GetNetConnection()))
-		{
-			Server_SetStanceMode(NewStanceMode);
-		}
-		StanceModeChanged.Broadcast(OldStanceMode, StanceMode);
-	}
-}
-
-void AGASPCharacter::Server_SetStanceMode_Implementation(const FGameplayTag NewStanceMode)
-{
-	SetStanceMode(NewStanceMode);
-}
-
 bool AGASPCharacter::CanSprint()
 {
-	if (RotationMode == RotationTags::OrientToMovement)
+	if (AllowedRotationMode == RotationTags::OrientToMovement)
 	{
 		return true;
 	}
-	if (RotationMode == RotationTags::Aim)
+	if (AllowedRotationMode == RotationTags::Aim)
 	{
 		return false;
 	}
 
-	const float Dot = FVector::DotProduct(MoverCustomInputs_PreSim.GetMoveInput().GetSafeNormal2D(),
+	const float Dot = FVector::DotProduct(MoverInputs_PostSim.GetMoveInput().GetSafeNormal2D(),
 	                                      GetActorForwardVector().GetSafeNormal2D());
 
 	return Dot > FMath::Cos(FMath::DegreesToRadians(50.f));
@@ -289,6 +302,9 @@ void AGASPCharacter::SetOverlayMode(const FGameplayTag NewOverlayMode, const boo
 {
 	if (NewOverlayMode != OverlayMode || bForce)
 	{
+		StateContainer.RemoveTag(OverlayMode);
+		StateContainer.AddTag(NewOverlayMode);
+		
 		const auto OldOverlayMode{OverlayMode};
 		OverlayMode = NewOverlayMode;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, OverlayMode, this);
@@ -304,9 +320,12 @@ void AGASPCharacter::SetPoseMode(const FGameplayTag NewPoseMode, const bool bFor
 {
 	if (NewPoseMode != PoseMode || bForce)
 	{
+		StateContainer.RemoveTag(PoseMode);
+		StateContainer.AddTag(NewPoseMode);
+		
 		const auto OldPoseMode{PoseMode};
 		PoseMode = NewPoseMode;
-		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, OverlayMode, this);
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, PoseMode, this);
 		if (GetLocalRole() == ROLE_AutonomousProxy)
 		{
 			Server_SetOverlayMode(NewPoseMode);
@@ -315,15 +334,18 @@ void AGASPCharacter::SetPoseMode(const FGameplayTag NewPoseMode, const bool bFor
 	}
 }
 
-void AGASPCharacter::Server_SetPoseMode_Implementation(const FGameplayTag NewPoseMode)
+void AGASPCharacter::Server_SetPoseMode_Implementation(const FGameplayTag NewOverlayMode)
 {
-	SetPoseMode(NewPoseMode);
+	SetPoseMode(NewOverlayMode);
 }
 
 void AGASPCharacter::SetLocomotionAction(const FGameplayTag NewLocomotionAction, const bool bForce)
 {
 	if (NewLocomotionAction != LocomotionAction || bForce)
 	{
+		StateContainer.RemoveTag(LocomotionAction);
+		StateContainer.AddTag(NewLocomotionAction);
+		
 		const auto OldLocomotionAction{LocomotionAction};
 		LocomotionAction = NewLocomotionAction;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, LocomotionAction, this);
@@ -358,15 +380,10 @@ bool AGASPCharacter::HasFullMovementInput() const
 	return true;
 }
 
-FVector2D AGASPCharacter::GetMovementInputScaleValue(const FVector2D InVector) const
-{
-	return MovementStickMode > EAnalogStickBehaviorMode::FixedWalkRun ? InVector : InVector.GetSafeNormal();
-}
-
 void AGASPCharacter::ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult)
 {
 	auto& CharacterInputs = InputCmdResult.InputCollection.FindOrAddMutableDataByType<FGASPMoverInputs>();
-	if (GetController() == nullptr)
+	if (!GetController())
 	{
 		if (GetLocalRole() == ENetRole::ROLE_Authority && GetRemoteRole() == ENetRole::ROLE_SimulatedProxy)
 		{
@@ -383,30 +400,30 @@ void AGASPCharacter::ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmd
 	CharacterInputs.ControlRotation = GetAimingRotation();
 	CharacterInputs.bIsJumpJustPressed = bJustPressedJump;
 	CharacterInputs.OrientationIntent = GetOrientationIntent();
-	CharacterInputs.RotationMode = RotationMode;
-	CharacterInputs.Gait = Gait;
+	CharacterInputs.RotationMode = AllowedRotationMode;
+	CharacterInputs.Gait = AllowedGait;
 	CharacterInputs.ControlRotationRate = ControlRotationRate;
 	CharacterInputs.Stance = PlayerInputState.DesiredStance;
 	GetMovementDirectionAddOffset(CharacterInputs.MovementDirection, CharacterInputs.RotationOffset);
 
-	MoverCustomInputs_PreSim = CharacterInputs;
+	// MoverInputs_PreSim = CharacterInputs;
 }
 
 void AGASPCharacter::GetMovementDirectionAddOffset(EMovementDirection& MovementDirection, float& RotationOffset)
 {
-	if (MoverCustomInputs_PreSim.RotationMode == RotationTags::OrientToMovement)
+	if (MoverInputs_PostSim.RotationMode == RotationTags::OrientToMovement)
 	{
 		DebugAngle = RotationOffset = 0.f;
 		MovementDirection = EMovementDirection::F;
 		return;
 	}
 
-	FVector DirectionOfMovement{FVector::ZeroVector};
-	if (MovementMode == MovementModeTags::Grounded)
+	auto DirectionOfMovement{FVector::ZeroVector};
+	if (AllowedMovementMode == MovementModeTags::Grounded)
 	{
-		DirectionOfMovement = MoverCustomInputs_PreSim.GetMoveInput();
+		DirectionOfMovement = MoverInputs_PostSim.GetMoveInput();
 	}
-	else if (MovementMode == MovementModeTags::InAir || MovementMode == MovementModeTags::Slide)
+	else if (AllowedMovementMode == MovementModeTags::InAir || AllowedMovementMode == MovementModeTags::Slide)
 	{
 		DirectionOfMovement = GetMoverComponent()->GetVelocity().GetSafeNormal();
 	}
@@ -419,16 +436,16 @@ void AGASPCharacter::GetMovementDirectionAddOffset(EMovementDirection& MovementD
 		return;
 	}
 
-	const FVector OrientationDir = MoverCustomInputs_PreSim.OrientationIntent.GetSafeNormal2D();
-	float Dot = FVector::DotProduct(DirectionOfMovement.GetSafeNormal2D(), OrientationDir);
+	const auto OrientationDir = MoverInputs_PostSim.OrientationIntent.GetSafeNormal2D();
+	const float Dot = FVector::DotProduct(DirectionOfMovement.GetSafeNormal2D(), OrientationDir);
 	const float CrossZ = FVector::CrossProduct(OrientationDir, DirectionOfMovement.GetSafeNormal2D()).Z;
 
 	// Result is strictly between -180 and 180
 	float MovementAngle = DebugAngle = FMath::RadiansToDegrees(FMath::Atan2(CrossZ, Dot));
 
-	if (MoverCustomInputs_PreSim.MovementDirection == EMovementDirection::F)
+	if (MoverInputs_PostSim.MovementDirection == EMovementDirection::F)
 	{
-		float CurrentOffset = MoverCustomInputs_PreSim.RotationOffset;
+		float CurrentOffset = MoverInputs_PostSim.RotationOffset;
 
 		if (FMath::IsNearlyZero(CurrentOffset))
 		{
@@ -448,12 +465,13 @@ void AGASPCharacter::GetMovementDirectionAddOffset(EMovementDirection& MovementD
 		}
 	}
 
-	MovementDirection = MoverCustomInputs_PreSim.Gait != GaitTags::Sprint
+	MovementDirection = MoverInputs_PostSim.Gait != GaitTags::Sprint
 		                    ? FGASPMath::GetMovementDirectionFromThreshold(
 			                    UGASPBlueprintLibrary::GetDirectionThresholds(
-				                    MoverCustomInputs_PreSim.MovementDirection, RotationMode == RotationTags::Aim
-						                    ? GeneralVars::AimStyle
-						                    : GeneralVars::StrafeStyle), MovementAngle)
+				                    MoverInputs_PostSim.MovementDirection, AllowedRotationMode == RotationTags::Aim
+					                                                           ? GeneralVars::AimStyle
+					                                                           : GeneralVars::StrafeStyle),
+			                    MovementAngle)
 		                    : EMovementDirection::F;
 
 	if (RotationCurveTable)
@@ -470,13 +488,13 @@ void AGASPCharacter::RefreshFloorValues()
 {
 	if (FHitResult HitResult; GetMoverComponent()->TryGetFloorCheckHitResult(HitResult))
 	{
-		MoverCustomInputs_PreSim.FloorLocation = HitResult.ImpactPoint;
-		MoverCustomInputs_PreSim.FloorNormal = HitResult.ImpactNormal;
+		MoverInputs_PostSim.FloorLocation = HitResult.ImpactPoint;
+		MoverInputs_PostSim.FloorNormal = HitResult.ImpactNormal;
 	}
 	else
 	{
-		MoverCustomInputs_PreSim.FloorLocation = GetMesh()->GetComponentLocation();
-		MoverCustomInputs_PreSim.FloorNormal = FVector::ZeroVector;
+		MoverInputs_PostSim.FloorLocation = GetMesh()->GetComponentLocation();
+		MoverInputs_PostSim.FloorNormal = FVector::ZeroVector;
 	}
 }
 
@@ -493,36 +511,21 @@ void AGASPCharacter::RefreshTwinStickMode()
 		return;
 	}
 
-	if (GetController())
+	GetController()->SetControlRotation(FRotator::ZeroRotator);
+
+	if (TwinStickAimDirection.IsNearlyZero(.1f))
 	{
-		GetController()->SetControlRotation(FRotator::ZeroRotator);
-
-		if (TwinStickAimDirection.IsNearlyZero(.1f))
-		{
-			TwinStickAimRotation = FRotator{
-				FQuat{GetControlRotation()} * FQuat{
-					FRotator{
-						0.f,
-						(180.0) / UE_DOUBLE_PI * FMath::Atan2(TwinStickAimDirection.Y, TwinStickAimDirection.X * -1),
-						0.f
-					}
-				}
-			};
-
-			const float StickYaw = FMath::RadiansToDegrees(
-				FMath::Atan2(TwinStickAimDirection.Y, -TwinStickAimDirection.X));
-			TwinStickAimRotation = FRotator(0.f, GetControlRotation().Yaw + StickYaw, 0.f);
-		}
-		else
-		{
-			TwinStickAimRotation = GetActorRotation();
-		}
+		const float StickYaw = FMath::RadiansToDegrees(FMath::Atan2(TwinStickAimDirection.Y, -TwinStickAimDirection.X));
+		TwinStickAimRotation = FRotator(0.f, GetControlRotation().Yaw + StickYaw, 0.f);
+	}
+	else
+	{
+		TwinStickAimRotation = GetActorRotation();
 	}
 }
 
 void AGASPCharacter::RefreshRotationMode()
 {
-	// TODO: targeted actor?
 	if (TwinStickMode)
 	{
 		if (!TwinStickAimDirection.IsZero())
@@ -547,11 +550,7 @@ void AGASPCharacter::RefreshSlidingAudio()
 
 const FGASPMoverInputs& AGASPCharacter::GetMoverState() const
 {
-	auto InputCmdContext = GetMoverComponent()->GetLastInputCmd();
-	auto Input = InputCmdContext.InputCollection.FindDataByType<FGASPMoverInputs>();
-
-	static const FGASPMoverInputs DoNothingInput;
-	return Input ? *Input : DoNothingInput;
+	return MoverInputs_PostSim;
 }
 
 FVector AGASPCharacter::GetMovementInputVector()
@@ -570,31 +569,33 @@ FVector AGASPCharacter::GetMovementInputVector()
 
 FVector AGASPCharacter::GetOrientationIntent()
 {
-	const FVector AimVector = FRotator(0.f, GetAimingRotation().Yaw, 0.f).Vector();
-	const bool bOrientToMove = RotationMode == RotationTags::OrientToMovement;
+	const auto AimVector{FRotator{0.f, GetAimingRotation().Yaw, 0.f}.Vector()};
+	const bool bOrientToMove{AllowedRotationMode == RotationTags::OrientToMovement};
 
-	if (MovementMode == MovementModeTags::Slide)
+	if (AllowedMovementMode == MovementModeTags::Slide)
 	{
 		return bOrientToMove ? GetMoverComponent()->GetVelocity().GetSafeNormal() : AimVector;
 	}
 
-	const FVector MoveInput = MoverCustomInputs_PreSim.GetMoveInput();
-	if (MovementMode == MovementModeTags::Grounded)
+	const auto MoveInput{MoverInputs_PostSim.GetMoveInput()};
+	if (AllowedMovementMode == MovementModeTags::Grounded)
 	{
 		if (!MoveInput.IsZero())
 		{
 			return bOrientToMove ? MoveInput : AimVector;
 		}
 
-		const float YawDiff = FMath::Abs((GetActorRotation() - GetAimingRotation()).GetNormalized().Yaw);
-		const bool bShouldTurnInPlace = RotationMode == RotationTags::Aim && YawDiff > 60.f;
+		const float YawDiff{
+			static_cast<float>(FMath::Abs((GetActorRotation() - GetAimingRotation()).GetNormalized().Yaw))
+		};
+		const bool bShouldTurnInPlace{AllowedRotationMode == RotationTags::Aim && YawDiff > 60.f};
 
-		return bShouldTurnInPlace ? AimVector : MoverCustomInputs_PreSim.OrientationIntent;
+		return bShouldTurnInPlace ? AimVector : MoverInputs_PostSim.OrientationIntent;
 	}
 
-	if (MovementMode == MovementModeTags::InAir)
+	if (AllowedMovementMode == MovementModeTags::InAir)
 	{
-		return bOrientToMove ? MoverCustomInputs_PreSim.OrientationIntent : AimVector;
+		return bOrientToMove ? MoverInputs_PostSim.OrientationIntent : AimVector;
 	}
 
 	return GetActorRotation().Vector();
@@ -638,23 +639,25 @@ void AGASPCharacter::UpdateNavigationRelevance()
 
 void AGASPCharacter::RefreshGait()
 {
-	auto& DesiredGait{PlayerInputState.DesiredGait};
-	auto NewGait{PlayerInputState.DesiredGait};
+	const auto& DesiredGait{PlayerInputState.DesiredGait};
 
 	if (DesiredGait == GaitTags::Sprint && CanSprint())
 	{
-		NewGait = HasFullMovementInput() ? GaitTags::Sprint : GaitTags::Run;
+		SetGait(HasFullMovementInput() ? GaitTags::Sprint : GaitTags::Run);
+		return;
 	}
-	else if (DesiredGait == GaitTags::Walk)
+	if (DesiredGait == GaitTags::Walk)
 	{
-		NewGait = GaitTags::Walk;
+		SetGait(GaitTags::Walk);
+		return;
 	}
-	else if (DesiredGait == GaitTags::Sprint || DesiredGait == GaitTags::Run)
+	if (DesiredGait == GaitTags::Sprint || DesiredGait == GaitTags::Run)
 	{
-		NewGait = HasFullMovementInput() ? GaitTags::Run : GaitTags::Walk;
+		SetGait(HasFullMovementInput() ? GaitTags::Run : GaitTags::Walk);
+		return;
 	}
 
-	SetGait(NewGait);
+	SetGait(DesiredGait);
 }
 
 FTraversalResult AGASPCharacter::TryTraversalAction() const
@@ -674,10 +677,10 @@ bool AGASPCharacter::IsDoingTraversal() const
 
 FTraversalCheckInputs AGASPCharacter::GetTraversalCheckInputs() const
 {
-	const FVector ForwardVector{GetActorForwardVector()};
-	if (MovementMode == MovementModeTags::InAir)
+	const auto ForwardVector{GetActorForwardVector()};
+	if (AllowedMovementMode == MovementModeTags::InAir)
 	{
-		auto Inputs{GetMoverState()};
+		const auto Inputs{GetMoverState()};
 		return {
 			!Inputs.GetMoveInput().IsZero() ? Inputs.GetMoveInput().GetSafeNormal() : ForwardVector,
 			75.f, FVector::ZeroVector, {0.f, 0.f, 50.f}, 30.f, 86.f
@@ -704,8 +707,8 @@ void AGASPCharacter::LinkAnimInstance(const UChooserTable* DataTable, const FGam
 		return;
 	}
 
-	StateContainer.RemoveTag(OldState);
-	StateContainer.AddLeafTag(State);
+	// StateContainer.RemoveTag(OldState);
+	// StateContainer.AddLeafTag(State);
 
 	auto* MeshComponent = GetMesh();
 	if (!IsValid(MeshComponent))
@@ -744,24 +747,24 @@ void AGASPCharacter::OnRep_PoseMode(const FGameplayTag& OldPoseMode)
 	PoseModeChanged.Broadcast(OldPoseMode, PoseMode);
 }
 
-void AGASPCharacter::OnRep_Gait(const FGameplayTag& OldGait)
+void AGASPCharacter::OnRep_AllowedGait(const FGameplayTag& OldGait)
 {
-	GaitChanged.Broadcast(OldGait, Gait);
+	GaitChanged.Broadcast(OldGait, AllowedGait);
 }
 
-void AGASPCharacter::OnRep_StanceMode(const FGameplayTag& OldStanceMode)
+void AGASPCharacter::OnRep_AllowedStanceMode(const FGameplayTag& OldStanceMode)
 {
-	StanceModeChanged.Broadcast(OldStanceMode, StanceMode);
+	StanceModeChanged.Broadcast(OldStanceMode, AllowedStanceMode);
 }
 
-void AGASPCharacter::OnRep_MovementMode(const FGameplayTag& OldMovementMode)
+void AGASPCharacter::OnRep_AllowedMovementMode(const FGameplayTag& OldMovementMode)
 {
-	MovementModeChanged.Broadcast(OldMovementMode, MovementMode);
+	MovementModeChanged.Broadcast(OldMovementMode, AllowedMovementMode);
 }
 
-void AGASPCharacter::OnRep_RotationMode(const FGameplayTag& OldRotationMode)
+void AGASPCharacter::OnRep_AllowedRotationMode(const FGameplayTag& OldRotationMode)
 {
-	RotationModeChanged.Broadcast(OldRotationMode, RotationMode);
+	RotationModeChanged.Broadcast(OldRotationMode, AllowedRotationMode);
 }
 
 void AGASPCharacter::OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAction)

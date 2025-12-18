@@ -1,5 +1,4 @@
 ﻿#include "GASPCharacterExample.h"
-
 #include "Components/GASPTraversalComponent.h"
 #include "GameFramework/GameplayCameraComponent.h"
 
@@ -7,10 +6,7 @@
 AGASPCharacterExample::AGASPCharacterExample(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bReplicates = true;
-
 	GameplayCamera = CreateDefaultSubobject<UGameplayCameraComponent>(TEXT("GameplayCamera"));
-	GameplayCamera->SetIsReplicated(true);
 
 	if (GetMesh())
 	{
@@ -31,7 +27,7 @@ void AGASPCharacterExample::PossessedBy(AController* NewController)
 
 void AGASPCharacterExample::OnRep_Controller()
 {
-	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	if (auto* PC = Cast<APlayerController>(GetController()))
 	{
 		GameplayCamera->ActivateCameraForPlayerController(PC);
 	}
@@ -44,7 +40,7 @@ void AGASPCharacterExample::SprintAction(bool bPressed)
 	if (bPressed)
 	{
 		PlayerInputState.DesiredGait = GaitTags::Sprint;
-		if (StanceMode == StanceTags::Crouching)
+		if (GetStanceMode() == StanceTags::Crouching)
 		{
 			PlayerInputState.DesiredStance = StanceTags::Standing;
 		}
@@ -70,9 +66,9 @@ void AGASPCharacterExample::WalkAction(bool bPressed)
 
 void AGASPCharacterExample::CrouchAction(bool bPressed)
 {
-	if (MovementMode == MovementModeTags::Grounded || MovementMode == MovementModeTags::Slide)
+	if (GetMovementMode() == MovementModeTags::Grounded || GetMovementMode() == MovementModeTags::Slide)
 	{
-		if (StanceMode == StanceTags::Crouching)
+		if (GetStanceMode() == StanceTags::Crouching)
 		{
 			PlayerInputState.DesiredStance = StanceTags::Standing;
 		}
@@ -85,7 +81,7 @@ void AGASPCharacterExample::CrouchAction(bool bPressed)
 
 void AGASPCharacterExample::JumpAction(bool bPressed)
 {
-	if (LocomotionAction == LocomotionActionTags::Ragdoll)
+	if (GetLocomotionAction() == LocomotionActionTags::Ragdoll)
 	{
 		StopRagdolling();
 		return;
@@ -139,7 +135,7 @@ void AGASPCharacterExample::RagdollAction(bool bPressed)
 
 void AGASPCharacterExample::StrafeAction(bool bPressed)
 {
-	if (RotationMode != RotationTags::Strafe)
+	if (GetRotationMode() != RotationTags::Strafe)
 	{
 		PlayerInputState.DesiredRotationMode = RotationTags::Strafe;
 	}

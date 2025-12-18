@@ -19,17 +19,27 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 {
 	GENERATED_BODY()
 
-	UFUNCTION(BlueprintSetter)
-	void SetMovementMode(const FGameplayTag NewMovementMode, bool bForce = false);
-	UFUNCTION(Server, Reliable)
-	void Server_SetMovementMode(const FGameplayTag NewMovementMode);
-
 	/** The main skeletal mesh associated with this Character (optional sub-object). */
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	TObjectPtr<USkeletalMeshComponent> Mesh;
 	/** The CapsuleComponent being used for movement collision (by CharacterMovement). Always treated as being vertically aligned in simple collision check functions. */
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	TObjectPtr<class UCapsuleComponent> CapsuleComponent;
+
+	UPROPERTY(BlueprintGetter=GetGait, ReplicatedUsing=OnRep_AllowedGait, Transient)
+	FGameplayTag AllowedGait{GaitTags::Run};
+	UPROPERTY(BlueprintGetter=GetRotationMode, ReplicatedUsing=OnRep_AllowedRotationMode, Transient)
+	FGameplayTag AllowedRotationMode{RotationTags::Strafe};
+	UPROPERTY(BlueprintGetter=GetMovementMode, ReplicatedUsing=OnRep_AllowedMovementMode, Transient)
+	FGameplayTag AllowedMovementMode{MovementModeTags::Grounded};
+	UPROPERTY(BlueprintGetter=GetStanceMode, ReplicatedUsing=OnRep_AllowedStanceMode, Transient)
+	FGameplayTag AllowedStanceMode{StanceTags::Standing};
+	UPROPERTY(BlueprintGetter=GetOverlayMode, ReplicatedUsing=OnRep_OverlayMode, Transient)
+	FGameplayTag OverlayMode{OverlayModeTags::Default};
+	UPROPERTY(BlueprintGetter=GetPoseMode, ReplicatedUsing=OnRep_PoseMode, Transient)
+	FGameplayTag PoseMode{PoseModeTags::Default};
+	UPROPERTY(BlueprintGetter=GetLocomotionAction, ReplicatedUsing=OnRep_LocomotionAction, Transient)
+	FGameplayTag LocomotionAction{FGameplayTag::EmptyTag};
 
 protected:
 	UPROPERTY(EditAnywhere, Category="PoseSearchData|Choosers", BlueprintReadOnly)
@@ -47,11 +57,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components", Replicated)
 	TObjectPtr<class UGASPTraversalComponent> TraversalComponent{};
 
-	UPROPERTY(BlueprintGetter=GetMoverInputs_PreSim, Replicated)
-	FGASPMoverInputs MoverCustomInputs_PreSim;
+	// UPROPERTY(BlueprintReadOnly)
+	// FGASPMoverInputs MoverInputs_PreSim{};
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	FGASPMoverInputs MoverInputs_PostSim{};
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	FGASPInputState PlayerInputState;
+	FGASPInputState PlayerInputState{};
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -67,30 +79,16 @@ protected:
 	UFUNCTION()
 	virtual void OnStanceChanged(EStanceMode OldStance, EStanceMode NewStance);
 
-	UPROPERTY(BlueprintReadOnly, Transient)
-	FGameplayTag Gait{GaitTags::Run};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_RotationMode, Transient)
-	FGameplayTag RotationMode{RotationTags::Strafe};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_MovementMode, Transient)
-	FGameplayTag MovementMode{MovementModeTags::Grounded};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_StanceMode, Transient)
-	FGameplayTag StanceMode{StanceTags::Standing};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_OverlayMode, Transient)
-	FGameplayTag OverlayMode{OverlayModeTags::Default};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_PoseMode, Transient)
-	FGameplayTag PoseMode{PoseModeTags::Default};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_LocomotionAction, Transient)
-	FGameplayTag LocomotionAction{FGameplayTag::EmptyTag};
-
-	UPROPERTY(BlueprintReadOnly, Transient)
-	FGameplayTag PreviousMovementMode{MovementModeTags::Grounded};
-
 	UPROPERTY(BlueprintReadOnly, Replicated, Transient)
 	FVector_NetQuantize RagdollTargetLocation{ForceInit};
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State|Character", Transient)
 	FRagdollingState RagdollingState;
 
+	UPROPERTY(EditDefaultsOnly)
+	FGameplayTag InitialOverlayMode{OverlayModeTags::Default};
+	UPROPERTY(EditDefaultsOnly)
+	FGameplayTag InitialPoseMode{PoseModeTags::Default};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character")
 	TObjectPtr<UAnimMontage> GetUpMontageFront{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character")
@@ -117,8 +115,6 @@ protected:
 	UFUNCTION(BlueprintPure, Category = "Input")
 	bool HasFullMovementInput() const;
 
-	UFUNCTION(BlueprintPure, Category = "Input")
-	FVector2D GetMovementInputScaleValue(const FVector2D InVector) const;
 	void GetMovementDirectionAddOffset(EMovementDirection& MovementDirection, float& RotationOffset);
 
 	// Entry point for input production.
@@ -136,6 +132,7 @@ protected:
 	virtual void RefreshTwinStickMode();
 	virtual void RefreshRotationMode();
 	virtual void RefreshSlidingAudio();
+	virtual void RefreshMoverState();
 
 public:
 	UPROPERTY(BlueprintReadOnly, Category=Character)
@@ -143,12 +140,6 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	const FGASPMoverInputs& GetMoverState() const;
-
-	UFUNCTION(BlueprintPure)
-	const FGASPMoverInputs& GetMoverInputs_PreSim()
-	{
-		return MoverCustomInputs_PreSim;
-	}
 
 	UFUNCTION(BlueprintPure)
 	virtual FVector GetMovementInputVector();
@@ -234,18 +225,13 @@ public:
 	 *		Movement States		*
 	 ****************************/
 	UFUNCTION(BlueprintCallable)
-	void SetGait(const FGameplayTag NewGait, bool bForce = false);
-	UFUNCTION(Server, Reliable)
-	void Server_SetGait(const FGameplayTag NewGait);
+	void SetMovementMode(const FGameplayTag NewMovementMode, const bool bForce = false);
+	UFUNCTION(BlueprintCallable)
+	void SetGait(const FGameplayTag NewGait, const bool bForce = false);
 	UFUNCTION(BlueprintCallable)
 	void SetRotationMode(const FGameplayTag NewRotationMode, const bool bForce = false);
-	UFUNCTION(Server, Reliable)
-	void Server_SetRotationMode(const FGameplayTag NewRotationMode);
-
 	UFUNCTION(BlueprintCallable)
 	void SetStanceMode(const FGameplayTag NewStanceMode, const bool bForce = false);
-	UFUNCTION(Server, Reliable)
-	void Server_SetStanceMode(const FGameplayTag NewStanceMode);
 
 	UFUNCTION(BlueprintCallable)
 	void SetOverlayMode(const FGameplayTag NewOverlayMode, const bool bForce = false);
@@ -266,59 +252,55 @@ public:
 	virtual bool CanSprint();
 
 	/** 
-	 * Make the character jump on the next update.	 
-	 * If you want your character to jump according to the time that the jump key is held,
-	 * then you can set JumpMaxHoldTime to some non-zero value. Make sure in this case to
-	 * call StopJumping() when you want the jump's z-velocity to stop being applied (such 
-	 * as on a button up event), otherwise the character will carry on receiving the 
-	 * velocity until JumpKeyHoldTime reaches JumpMaxHoldTime.
 	 */
 	UFUNCTION(BlueprintCallable, Category=Character)
 	virtual void Jump();
 
 	/** 
-	 * Stop the character from jumping on the next update. 
-	 * Call this from an input event (such as a button 'up' event) to cease applying
-	 * jump Z-velocity. If this is not called, then jump z-velocity will be applied
-	 * until JumpMaxHoldTime is reached.
 	 */
 	UFUNCTION(BlueprintCallable, Category=Character)
 	virtual void StopJumping();
 
-	UFUNCTION(BlueprintGetter)
+	UFUNCTION(BlueprintPure)
 	FORCEINLINE FGameplayTag GetOverlayMode() const
 	{
 		return OverlayMode;
 	}
 
-	UFUNCTION(BlueprintGetter)
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE FGameplayTag GetPoseMode() const
+	{
+		return PoseMode;
+	}
+
+	UFUNCTION(BlueprintPure)
 	FORCEINLINE FGameplayTag GetLocomotionAction() const
 	{
 		return LocomotionAction;
 	}
 
-	UFUNCTION(BlueprintGetter)
-	FORCEINLINE FGameplayTag GetGait() const
-	{
-		return Gait;
-	}
-
-	UFUNCTION(BlueprintGetter)
-	FORCEINLINE FGameplayTag GetRotationMode() const
-	{
-		return RotationMode;
-	}
-
-	UFUNCTION(BlueprintGetter)
+	UFUNCTION(BlueprintPure)
 	FORCEINLINE FGameplayTag GetMovementMode() const
 	{
-		return MovementMode;
+		return AllowedMovementMode;
 	}
 
-	UFUNCTION(BlueprintGetter)
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE FGameplayTag GetGait() const
+	{
+		return AllowedGait;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE FGameplayTag GetRotationMode() const
+	{
+		return AllowedRotationMode;
+	}
+
+	UFUNCTION(BlueprintPure)
 	FORCEINLINE FGameplayTag GetStanceMode() const
 	{
-		return StanceMode;
+		return AllowedStanceMode;
 	}
 
 	UPROPERTY(BlueprintReadOnly)
@@ -349,13 +331,13 @@ private:
 	UFUNCTION()
 	virtual void OnRep_PoseMode(const FGameplayTag& OldPoseMode);
 	UFUNCTION()
-	virtual void OnRep_Gait(const FGameplayTag& OldGait);
+	virtual void OnRep_AllowedGait(const FGameplayTag& OldGait);
 	UFUNCTION()
-	virtual void OnRep_StanceMode(const FGameplayTag& OldStanceMode);
+	virtual void OnRep_AllowedStanceMode(const FGameplayTag& OldStanceMode);
 	UFUNCTION()
-	virtual void OnRep_MovementMode(const FGameplayTag& OldMovementMode);
+	virtual void OnRep_AllowedMovementMode(const FGameplayTag& OldMovementMode);
 	UFUNCTION()
-	virtual void OnRep_RotationMode(const FGameplayTag& OldRotationMode);
+	virtual void OnRep_AllowedRotationMode(const FGameplayTag& OldRotationMode);
 	UFUNCTION()
 	virtual void OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAction);
 

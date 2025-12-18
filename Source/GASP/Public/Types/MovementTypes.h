@@ -67,17 +67,14 @@ struct FGASPMoverInputs : public FCharacterDefaultInputs
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadOnly)
-	FGameplayTag RotationMode;
-
-	UPROPERTY(BlueprintReadOnly)
 	FGameplayTag Gait;
-
+	UPROPERTY(BlueprintReadOnly)
+	FGameplayTag RotationMode;
 	UPROPERTY(BlueprintReadOnly)
 	FGameplayTag Stance;
 
 	UPROPERTY(BlueprintReadOnly)
 	float ControlRotationRate;
-
 	UPROPERTY(BlueprintReadOnly)
 	float RotationOffset;
 
@@ -88,12 +85,13 @@ struct FGASPMoverInputs : public FCharacterDefaultInputs
 	FVector_NetQuantize FloorLocation;
 	UPROPERTY(BlueprintReadOnly)
 	FVector_NetQuantizeNormal FloorNormal;
+
 	UPROPERTY(BlueprintReadOnly)
 	FRotator AimingRotation;
 
 	FGASPMoverInputs()
-		: RotationMode(RotationTags::OrientToMovement)
-		  , Gait(GaitTags::Walk)
+		: Gait(GaitTags::Run)
+		  , RotationMode(RotationTags::OrientToMovement)
 		  , Stance(StanceTags::Standing)
 		  , ControlRotationRate(ForceInitToZero)
 		  , RotationOffset(ForceInitToZero)

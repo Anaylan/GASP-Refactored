@@ -20,17 +20,10 @@ For more information, see the [Releases](https://github.com/Anaylan/GASP-Refacto
 
 | Plugin Version                                                     | Unreal Engine Version |
 |--------------------------------------------------------------------|-----------------------|
-| [1.2](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.2) | 5.5                   |
 | [1.3](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.3) | 5.5                   |
-| [1.4](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.4) | 5.6                   |
-| [1.5](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.5) | 5.6                   |
-| [1.6](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.6) | 5.6                   |
-| [1.7](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.7) | 5.6                   |
-| [1.8](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.8) | 5.6                   |
-| [1.9](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.9) | 5.6                   |
-| [1.10](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.10) | 5.6                   |
 | [1.11](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.11) | 5.6                   |
 | [1.12](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.12) | 5.7                   |
+| [2.0](https://github.com/Anaylan/GASP-Refactored/releases/tag/2.0) | 5.7                   |
 
 **The plugin is developed and tested primarily on Windows, so use it on other platforms at your own risk.**
 

@@ -1,8 +1,9 @@
 #include "Types/MovementTypes.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(MovementTypes)
+
 bool FGASPMoverInputs::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
 {
-	Super::NetSerialize(Ar, Map, bOutSuccess);
 	RotationMode.NetSerialize(Ar, Map, bOutSuccess);
 	Gait.NetSerialize(Ar, Map, bOutSuccess);
 	Stance.NetSerialize(Ar, Map, bOutSuccess);
@@ -11,14 +12,14 @@ bool FGASPMoverInputs::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSu
 	Ar << RotationOffset;
 	Ar << MovementDirection;
 
-	SerializeFixedVector<1, 16>(FloorLocation, Ar);
-	SerializeFixedVector<1, 16>(FloorNormal, Ar);
+	FloorLocation.NetSerialize(Ar, Map, bOutSuccess);
+	FloorNormal.NetSerialize(Ar, Map, bOutSuccess);
 	AimingRotation.SerializeCompressedShort(Ar);
 
-	return bOutSuccess;
+	return FCharacterDefaultInputs::NetSerialize(Ar, Map, bOutSuccess);
 }
 
 void FGASPMoverInputs::ToString(FAnsiStringBuilderBase& Out) const
 {
-	Super::ToString(Out);
+	FCharacterDefaultInputs::ToString(Out);
 }

@@ -19,12 +19,12 @@ public class GASP : ModuleRules
 			"Mover",
 			"NetworkPrediction",
 			"GameplayTags",
-			"AIModule",
+			"AIModule", "PoseSearch",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"MotionTrajectory", "PoseSearch", "Chooser", "BlendStack",
+			"MotionTrajectory", "Chooser", "BlendStack",
 			"AnimationWarpingRuntime",
 			"PhysicsCore",
 			"AnimGraphRuntime", "Niagara",

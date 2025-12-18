@@ -1,6 +1,7 @@
 ﻿#include "Actors/GASPCharacter.h"
 #include "Animation/GASPAnimInstance.h"
 #include "Components/CapsuleComponent.h"
+#include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
 #include "MovementSet/GASPMoverComponent.h"
 #include "Net/Core/PushModel/PushModel.h"
 
@@ -71,8 +72,6 @@ void AGASPCharacter::StartRagdollingImplementation()
 		GetMesh()->GetAnimInstance()->Montage_Stop(BlendOutDuration);
 	}
 
-	// Disable movement corrections and reset network smoothing.
-
 	// Detach the mesh so that character transformation changes will not affect it in any way.
 	GetMesh()->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 
@@ -105,7 +104,8 @@ void AGASPCharacter::StartRagdollingImplementation()
 		static constexpr auto MinSpeedLimit{200.0f};
 
 		RagdollingState.SpeedLimitFrameTimeRemaining = 8;
-		RagdollingState.SpeedLimit = FMath::Max(MinSpeedLimit, UE_REAL_TO_FLOAT(GetVelocity().Size()));
+		RagdollingState.SpeedLimit = FMath::Max(MinSpeedLimit,
+		                                        UE_REAL_TO_FLOAT(GetMoverComponent()->GetVelocity().Size()));
 
 		ConstraintRagdollSpeed();
 	}
@@ -420,7 +420,9 @@ void AGASPCharacter::StopRagdollingImplementation()
 	if (bGrounded)
 	{
 		GetMoverComponent()->QueueNextMode(DefaultModeNames::Walking);
-		AnimationInstance->Montage_Play(SelectGetUpMontage(bRagdollFacingUpward));
+		UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
+			GetMoverComponent(), SelectGetUpMontage(bRagdollFacingUpward));
+		//AnimationInstance->Montage_Play(SelectGetUpMontage(bRagdollFacingUpward));
 	}
 	else
 	{
@@ -428,7 +430,7 @@ void AGASPCharacter::StopRagdollingImplementation()
 		//TODO
 		//MovementComponent->Velocity = RagdollingState.Velocity;
 
-		auto SyncState = GetMoverComponent()->GetSyncState().SyncStateCollection.FindMutableDataByType<
+		auto* SyncState = GetMoverComponent()->GetSyncState().SyncStateCollection.FindMutableDataByType<
 			FMoverDefaultSyncState>();
 		SyncState->SetTransforms_WorldSpace(SyncState->GetLocation_WorldSpace(), SyncState->GetOrientation_WorldSpace(),
 		                                    RagdollingState.Velocity,

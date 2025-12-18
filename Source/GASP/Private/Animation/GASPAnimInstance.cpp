@@ -214,15 +214,15 @@ void UGASPAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 		return;
 	}
 
-	const FGameplayTag NewGait = CachedCharacter->GetGait() == GaitTags::Sprint && IsCircling()
-		                             ? GaitTags::Run
-		                             : CachedCharacter->GetGait();
+	const auto& InputState{CachedCharacter->GetMoverState()};
+	const FGameplayTag NewGait = InputState.Gait == GaitTags::Sprint && IsCircling() ? GaitTags::Run : InputState.Gait;
+
 	Gait.Update(NewGait, DeltaSeconds, .1f);
-	RotationMode.Update(CachedCharacter->GetRotationMode(), DeltaSeconds, .1f);
+	RotationMode.Update(InputState.RotationMode, DeltaSeconds, .1f);
 	MovementState.Update(IsMoving() ? MovementStateTags::Moving : MovementStateTags::Idle, DeltaSeconds, .1f);
 	MovementMode.Update(CachedCharacter->GetMovementMode(), DeltaSeconds, .1f);
-	StanceMode.Update(CachedCharacter->GetStanceMode(), DeltaSeconds, .1f);
-	MovementDirection.Update(CachedCharacter->GetMoverState().MovementDirection, DeltaSeconds, .1f);
+	StanceMode.Update(InputState.Stance, DeltaSeconds, .1f);
+	MovementDirection.Update(InputState.MovementDirection, DeltaSeconds, .1f);
 
 	RefreshStateContainer();
 	RefreshEssentialValues(DeltaSeconds);
@@ -486,8 +486,7 @@ bool UGASPAnimInstance::ShouldTurnInPlace() const
 bool UGASPAnimInstance::ShouldSpinTransition() const
 {
 	return FMath::Abs(TrajectoryInfo.FutureFacingDelta) >= AnimConfiguration.SpinTransitionAngle && CharacterInfo.Speed
-		>=
-		150.f && !BlendStack.DatabaseTags.Contains(AnimNames.PivotsTag);
+		>= 150.f && !BlendStack.DatabaseTags.Contains(AnimNames.PivotsTag);
 }
 
 bool UGASPAnimInstance::JustLanded_Light() const
@@ -652,8 +651,6 @@ void UGASPAnimInstance::RefreshBlendStack(const FAnimUpdateContext& Context, con
 	const auto* NewAnimSequence{static_cast<UAnimSequence*>(BlendStack.AnimAsset.Get())};
 
 	float ProceduralTargetTime;
-	UAnimationWarpingLibrary::GetCurveValueFromAnimation(NewAnimSequence, AnimNames.EnableWarpingCurveName,
-	                                                     BlendStack.AnimTime, BlendStack.OrientationAlpha);
 	UAnimationWarpingLibrary::GetCurveValueFromAnimation(NewAnimSequence, AnimNames.SteeringTargetTime,
 	                                                     BlendStack.AnimTime, ProceduralTargetTime);
 
@@ -664,6 +661,8 @@ void UGASPAnimInstance::RefreshBlendStack(const FAnimUpdateContext& Context, con
 
 
 	float WarpingValue;
+	UAnimationWarpingLibrary::GetCurveValueFromAnimation(NewAnimSequence, AnimNames.EnableWarpingCurveName,
+	                                                     BlendStack.AnimTime, BlendStack.OrientationAlpha);
 	UAnimationWarpingLibrary::GetCurveValueFromAnimation(NewAnimSequence, AnimNames.EnableStrafeWarpingName,
 	                                                     BlendStack.AnimTime, WarpingValue);
 	BlendStack.StrafeWarpAlpha = FMath::Clamp(BlendStack.OrientationAlpha + WarpingValue, 0.f, 1.f);
@@ -703,7 +702,6 @@ void UGASPAnimInstance::RefreshEssentialValues(const float DeltaSeconds)
 		CharacterInfo.RootTransform = CharacterInfo.ActorTransform;
 	}
 
-	// Make syncstate?
 	const auto InputState = CachedCharacter->GetMoverState();
 	CharacterInfo.Acceleration = CachedMovement->GetMovementIntent();
 	CharacterInfo.FloorLocation = InputState.FloorLocation;
@@ -748,13 +746,9 @@ FVector2D UGASPAnimInstance::GetAOValue() const
 		return FVector2D::ZeroVector;
 	}
 
-	//TODO: need to replace this string???
-	const auto ControlRot = CachedCharacter->IsLocallyControlled()
-		                        ? CachedCharacter->GetControlRotation()
-		                        : CachedCharacter->GetBaseAimRotation();
-
-	const FRotator RootRot = CharacterInfo.RootTransform.Rotator();
-	FRotator DeltaRot{(ControlRot - RootRot).GetNormalized()};
+	const auto ControlRot{CachedCharacter->GetMoverState().ControlRotation};
+	const auto RootRot{CharacterInfo.RootTransform.Rotator()};
+	auto DeltaRot{(ControlRot - RootRot).GetNormalized()};
 
 	const float DisableBlend = GetCurveValue(AnimNames.DisableAOCurveName);
 	return FMath::Lerp({DeltaRot.Yaw, DeltaRot.Pitch}, FVector2D::ZeroVector, DisableBlend);
@@ -774,6 +768,7 @@ bool UGASPAnimInstance::CanOverlayTransition() const
 
 void UGASPAnimInstance::RefreshOverlaySettings(float DeltaTime)
 {
+	// TODO
 	const float ClampedYawAxis = FMath::ClampAngle(GetAOValue().X, -90.f, 90.f) / 6.f;
 	SpineRotation.Yaw = FMath::FInterpTo(SpineRotation.Yaw, ClampedYawAxis, DeltaTime, 60.f);
 }
@@ -854,7 +849,7 @@ void UGASPAnimInstance::SetBlendStackAnimFromChooser(const FAnimNodeReference& N
 		auto AnimationAsset = static_cast<UAnimationAsset*>(PoseSearchResult.SelectedAnim);
 
 		const bool bIsCostAcceptable = ChooserOutputs.MMCostLimit > 0.f
-			                               ? PoseSearchResult.SearchCost <= ChooserOutputs.MMCostLimit
+			                               ? SearchCost <= ChooserOutputs.MMCostLimit
 			                               : true;
 		if (!IsValid(AnimationAsset) && bIsCostAcceptable)
 		{

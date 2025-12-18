@@ -1,17 +1,15 @@
-﻿#include "Components/GASPTraversalComponent.h"
+#include "Components/GASPTraversalComponent.h"
 #include "Actors/GASPCharacter.h"
 #include "AnimationWarpingLibrary.h"
 #include "Animation/GASPAnimInstance.h"
 #include "ChooserFunctionLibrary.h"
 #include "Components/CapsuleComponent.h"
-#include "Interfaces/GASPInteractionTransformInterface.h"
+#include "Interfaces/GASPInteractionInterface.h"
 #include "IObjectChooser.h"
 #include "MotionWarpingComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/AssetManager.h"
 #include "MovementSet/GASPMoverComponent.h"
-#include "PoseSearch/PoseSearchLibrary.h"
-#include "PoseSearch/PoseSearchResult.h"
 #include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPTraversalComponent)
@@ -29,8 +27,6 @@ namespace TraversalVar
 		TEXT("gasp.traversal.DrawDebugDuration"), DrawDebugDuration,
 		TEXT("debug duration for traversal"), ECVF_Default);
 }
-
-
 #endif
 
 namespace
@@ -39,7 +35,6 @@ namespace
 	const FName NAME_BackLedge{TEXT("BackLedge")};
 	const FName NAME_BackFloor{TEXT("BackFloor")};
 	const FName NAME_DistanceFromLedge{TEXT("Distance_From_Ledge")};
-	const FName NAME_PoseHistory{TEXT("PoseHistory")};
 }
 
 // Sets default values for this component's properties
@@ -253,8 +248,8 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	/** Step 3.2: Perform a trace from the actors location up to the front ledge location to determine if there is
 	 * room for the actor to move up to it. If so, continue the function. If not, exit early. */
 	const FVector HasRoomCheckFrontLedgeLocation = NewTraversalCheckResult.FrontLedgeLocation +
-		NewTraversalCheckResult.FrontLedgeNormal * (CapsuleRadius + 2.0f) +
-		FVector::ZAxisVector * (CapsuleHalfHeight + 2.0f);
+		NewTraversalCheckResult.FrontLedgeNormal * (CapsuleRadius + 2.0f) + FVector::ZAxisVector * (CapsuleHalfHeight +
+			2.0f);
 
 	SweepTrace(World, Hit, ActorLocation, HasRoomCheckFrontLedgeLocation, CapsuleRadius, CapsuleHalfHeight,
 	           ECC_Visibility);
@@ -312,8 +307,8 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 		 * to find the floor. If there is a floor, save its location and the back ledges height (using the distance
 		 * between the back ledge and the floor). If no floor was found, invalidate the back floor.*/
 		const FVector EndTraceLocation = NewTraversalCheckResult.BackLedgeLocation +
-			NewTraversalCheckResult.BackLedgeNormal * (CapsuleRadius + 2.0f) - FVector::ZAxisVector * (
-				NewTraversalCheckResult.ObstacleHeight - CapsuleHalfHeight + 50.0f);
+			NewTraversalCheckResult.BackLedgeNormal * (CapsuleRadius + 2.0f) - FVector::ZAxisVector * /**/50.f;
+		// (NewTraversalCheckResult.ObstacleHeight - CapsuleHalfHeight + 50.0f);
 
 		SweepTrace(World, Hit, HasRoomCheckBackLedgeLocation, EndTraceLocation, CapsuleRadius,
 		           CapsuleHalfHeight, ECC_Visibility);
@@ -339,48 +334,9 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 		}
 	}
 
-	// Step 5.3: Evaluate a chooser to select all montages that match the conditions of the traversal check.
-	auto* ChooserTable{TraversalAnimationsChooserTable.LoadSynchronous()};
-	FTraversalChooserInput ChooserParameters;
-	ChooserParameters.ActionType = NewTraversalCheckResult.ActionType;
-	ChooserParameters.Speed = CharacterOwner->GetVelocity().Size2D();
-	ChooserParameters.StateContainer = CharacterOwner->StateContainer;
-	ChooserParameters.bHasBackFloor = NewTraversalCheckResult.bHasBackFloor;
-	ChooserParameters.bHasBackLedge = NewTraversalCheckResult.bHasBackLedge;
-	ChooserParameters.bHasFrontLedge = NewTraversalCheckResult.bHasFrontLedge;
-	ChooserParameters.ObstacleHeight = NewTraversalCheckResult.ObstacleHeight;
-	ChooserParameters.ObstacleDepth = NewTraversalCheckResult.ObstacleDepth;
-	ChooserParameters.BackLedgeHeight = NewTraversalCheckResult.BackLedgeHeight;
-
-	FTraversalChooserOutput ChooserOutput;
-	auto Context = UChooserFunctionLibrary::MakeChooserEvaluationContext();
-
-	Context.AddStructParam(ChooserParameters);
-	Context.AddStructParam(ChooserOutput);
-	auto AnimationMontages{
-		UChooserFunctionLibrary::EvaluateObjectChooserBaseMulti(
-			Context, UChooserFunctionLibrary::MakeEvaluateChooser(ChooserTable), UAnimMontage::StaticClass())
-	};
-
-	NewTraversalCheckResult.ActionType = ChooserOutput.ActionType;
-
-	/* Step 5.1: Continue if there is a valid action type. If none of the conditions were met, no action can be
-	 * performed, therefore exit the function. */
-	if (NewTraversalCheckResult.ActionType == FGameplayTag::EmptyTag)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Traversal: 366"));
-		return {true, false};
-	}
-
 	/** Step 5.2: Send the front ledge location to the Anim BP using an interface. This transform will be used for a
 	 * custom channel within the following Motion Matching search. */
-	if (!AnimInstance.IsValid())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Traversal: 373"));
-		return {true, false};
-	}
-	auto* InteractableObject = Cast<IGASPInteractionTransformInterface>(AnimInstance);
-	if (InteractableObject == nullptr && !AnimInstance->Implements<UGASPInteractionTransformInterface>())
+	if (!AnimInstance.IsValid() || !AnimInstance->Implements<UGASPInteractionInterface>())
 	{
 		return {true, false};
 	}
@@ -388,34 +344,45 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	const auto InteractionTransform = FTransform(
 		FRotationMatrix::MakeFromZ(NewTraversalCheckResult.FrontLedgeNormal).ToQuat(),
 		NewTraversalCheckResult.FrontLedgeLocation, FVector::OneVector);
-	if (InteractableObject != nullptr)
-	{
-		InteractableObject->Execute_SetInteractionTransform(AnimInstance.Get(), InteractionTransform);
-	}
-	else
-	{
-		IGASPInteractionTransformInterface::Execute_SetInteractionTransform(AnimInstance.Get(), InteractionTransform);
-	}
+	IGASPInteractionInterface::Execute_SetInteractionTransform(AnimInstance.Get(), InteractionTransform);
 
-	/** Step 5.4: Perform a Motion Match on all the montages that were chosen by the chooser to find the best result.
-	 * This match will elect the best montage AND the best entry frame (start time) based on the distance to the ledge,
-	 * and the current characters pose. If for some reason no montage was found (motion matching failed, perhaps due to
-	 * an invalid database or issue with the schema), print a warning and exit the function. */
-	FPoseSearchBlueprintResult Result;
-	UPoseSearchLibrary::MotionMatch(AnimInstance.Get(), AnimationMontages, NAME_PoseHistory,
-	                                FPoseSearchContinuingProperties(), FPoseSearchFutureProperties(), Result);
-	const auto* AnimationMontage = Cast<UAnimMontage>(Result.SelectedAnim);
-	if (!IsValid(AnimationMontage))
+	// Step 5.3: Evaluate a chooser to select all montages that match the conditions of the traversal check.
+	auto* ChooserTable{TraversalAnimationsChooserTable.LoadSynchronous()};
+	FTraversalChooserInput ChooserParameters;
+	ChooserParameters.ActionType = NewTraversalCheckResult.ActionType;
+	ChooserParameters.Speed = MoverComponent->GetVelocity().Size2D();
+	ChooserParameters.StateContainer = CharacterOwner->StateContainer;
+	ChooserParameters.bHasBackFloor = NewTraversalCheckResult.bHasBackFloor;
+	ChooserParameters.bHasBackLedge = NewTraversalCheckResult.bHasBackLedge;
+	ChooserParameters.bHasFrontLedge = NewTraversalCheckResult.bHasFrontLedge;
+	ChooserParameters.ObstacleHeight = NewTraversalCheckResult.ObstacleHeight;
+	ChooserParameters.ObstacleDepth = NewTraversalCheckResult.ObstacleDepth;
+	ChooserParameters.BackLedgeHeight = NewTraversalCheckResult.BackLedgeHeight;
+	ChooserParameters.PoseHistory = IGASPInteractionInterface::Execute_GetPoseHistory(AnimInstance.Get());
+	ChooserParameters.DistanceToLedge = FVector::Dist(NewTraversalCheckResult.FrontLedgeLocation,
+	                                                  MeshComponent->GetComponentLocation());
+
+	FTraversalChooserOutput ChooserOutput;
+	auto Context = UChooserFunctionLibrary::MakeChooserEvaluationContext();
+
+	Context.AddStructParam(ChooserParameters);
+	Context.AddStructParam(ChooserOutput);
+	auto AnimationMontage{
+		UChooserFunctionLibrary::EvaluateObjectChooserBase(
+			Context, UChooserFunctionLibrary::MakeEvaluateChooser(ChooserTable), UAnimMontage::StaticClass())
+	};
+
+	NewTraversalCheckResult.ActionType = ChooserOutput.ActionType;
+	NewTraversalCheckResult.StartTime = ChooserOutput.MontageStartTime;
+	NewTraversalCheckResult.ChosenMontage = static_cast<UAnimMontage*>(AnimationMontage);
+	NewTraversalCheckResult.PlayRate = 1.f;
+
+	/* Step 5.1: Continue if there is a valid action type. If none of the conditions were met, no action can be
+	 * performed, therefore exit the function. */
+	if (NewTraversalCheckResult.ActionType == FGameplayTag::EmptyTag)
 	{
-#if WITH_EDITOR && ALLOW_CONSOLE
-		GEngine->AddOnScreenDebugMessage(-1, TraversalVar::DrawDebugDuration, FColor::Red,
-		                                 FString::Printf(TEXT("Failed To Find Montage!")));
-#endif
 		return {true, false};
 	}
-	NewTraversalCheckResult.ChosenMontage = AnimationMontage;
-	NewTraversalCheckResult.StartTime = Result.SelectedTime;
-	NewTraversalCheckResult.PlayRate = Result.WantedPlayRate;
 
 	TraversalCheckResult = NewTraversalCheckResult;
 	PerformTraversalAction();
@@ -491,12 +458,12 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 	MoverComponent->QueueNextMode(DefaultModeNames::Flying);
 }
 
-void UGASPTraversalComponent::Server_Traversal_Implementation(FTraversalCheckResult TraversalRep)
+void UGASPTraversalComponent::Server_Traversal_Implementation(const FTraversalCheckResult TraversalRep)
 {
 	Traversal_ServerImplementation(TraversalRep);
 }
 
-void UGASPTraversalComponent::Multicast_Traversal_Implementation(FTraversalCheckResult TraversalRep)
+void UGASPTraversalComponent::Multicast_Traversal_Implementation(const FTraversalCheckResult TraversalRep)
 {
 	TraversalCheckResult = TraversalRep;
 	PerformTraversalAction();
@@ -510,7 +477,7 @@ FComputeLedgeData UGASPTraversalComponent::ComputeLedgeData(FHitResult& HitResul
 	const auto StartNormal{HitResult.ImpactNormal};
 	const float TraceLength = HitResult.GetComponent()->Bounds.SphereRadius * 2;
 
-	const FVector AbsoluteObjectUpVector = HitResult.GetComponent()->GetUpVector() * FMath::Sign(
+	const auto AbsoluteObjectUpVector = HitResult.GetComponent()->GetUpVector() * FMath::Sign(
 		FVector::DotProduct(HitResult.GetComponent()->GetUpVector(), CharacterOwner->GetActorUpVector()));
 
 	auto TraceCorner = TraceCorners(HitResult, FVector::CrossProduct(HitResult.ImpactNormal, AbsoluteObjectUpVector),
@@ -596,10 +563,10 @@ FTraceCorners UGASPTraversalComponent::TraceCorners(FHitResult HitResult, const 
 bool UGASPTraversalComponent::TraceAlongHitPlane(const FHitResult& HitResult, const FVector TraceDirection,
                                                  const float TraceLength, FHitResult& OutHit) const
 {
-	const FVector CrossPoint = FVector::CrossProduct(HitResult.ImpactNormal, TraceDirection);
-	const FVector NormalizedPoint = FVector::CrossProduct(CrossPoint, HitResult.ImpactNormal).GetSafeNormal(.0001f);
-	const FVector DeltaPoint = HitResult.ImpactPoint - HitResult.ImpactNormal;
-	const FVector TraceStart = TraceLength * NormalizedPoint + DeltaPoint;
+	const auto CrossPoint = FVector::CrossProduct(HitResult.ImpactNormal, TraceDirection);
+	const auto NormalizedPoint = FVector::CrossProduct(CrossPoint, HitResult.ImpactNormal).GetSafeNormal(.0001f);
+	const auto DeltaPoint = HitResult.ImpactPoint - HitResult.ImpactNormal;
+	const auto TraceStart = TraceLength * NormalizedPoint + DeltaPoint;
 
 	return HitResult.GetComponent()->LineTraceComponent(OutHit, TraceStart,
 	                                                    TraceStart + 1.5 * (DeltaPoint - TraceStart),
@@ -609,8 +576,8 @@ bool UGASPTraversalComponent::TraceAlongHitPlane(const FHitResult& HitResult, co
 
 bool UGASPTraversalComponent::TraceWidth(FHitResult HitResult, const FVector Direction) const
 {
-	const FVector StartLocation = Direction * (MinLedgeWidth / 2.f) + HitResult.ImpactPoint;
-	const FVector FrontLedgeNormalDepth = HitResult.ImpactNormal * MinFrontLedgeDepth;
+	const auto StartLocation = Direction * (MinLedgeWidth / 2.f) + HitResult.ImpactPoint;
+	const auto FrontLedgeNormalDepth = HitResult.ImpactNormal * MinFrontLedgeDepth;
 
 	return HitResult.GetComponent()->LineTraceComponent(HitResult, StartLocation + FrontLedgeNormalDepth,
 	                                                    StartLocation - FrontLedgeNormalDepth, GetQueryParams());

@@ -3,6 +3,8 @@
 #include "DefaultMovementSet/CharacterMoverComponent.h"
 #include "GASPMoverComponent.generated.h"
 
+struct FGASPMoverInputs;
+
 UCLASS(BlueprintType, Blueprintable, meta = (BlueprintSpawnableComponent))
 class GASP_API UGASPMoverComponent : public UCharacterMoverComponent
 {
