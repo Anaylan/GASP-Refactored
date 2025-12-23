@@ -1,5 +1,4 @@
 #include "MovementSet/GASPMoverComponent.h"
-
 #include "Components/CapsuleComponent.h"
 #include "MovementSet/Modes/MovementMode_Falling.h"
 #include "DefaultMovementSet/Modes/FlyingMode.h"
@@ -29,4 +28,13 @@ FVector UGASPMoverComponent::GetFeetLocation()
 		return Capsule->GetComponentLocation() + (-FVector::UpVector * Capsule->GetScaledCapsuleHalfHeight());
 	}
 	return FVector::ZeroVector;
+}
+
+void UGASPMoverComponent::InitCollisionParams(FCollisionQueryParams& OutParams,
+                                              FCollisionResponseParams& OutResponseParam) const
+{
+	if (const auto* PrimitiveComponent = GetMovementBase())
+	{
+		PrimitiveComponent->InitSweepCollisionParams(OutParams, OutResponseParam);
+	}
 }

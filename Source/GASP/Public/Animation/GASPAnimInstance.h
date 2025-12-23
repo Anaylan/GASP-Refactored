@@ -1,6 +1,5 @@
 #pragma once
 
-#include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/GASPAnimInstanceProxy.h"
 #include "Animation/AnimExecutionContext.h"

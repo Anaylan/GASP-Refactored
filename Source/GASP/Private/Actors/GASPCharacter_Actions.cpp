@@ -8,7 +8,7 @@
 static const FName NAME_pelvis(TEXT("pelvis"));
 static const FName NAME_spine_03(TEXT("spine_03"));
 
-UAnimMontage* AGASPCharacter::SelectGetUpMontage(bool bRagdollFacingUpward)
+UAnimMontage* AGASPCharacter::SelectGetUpMontage(const bool bRagdollFacingUpward)
 {
 	return bRagdollFacingUpward ? GetUpMontageBack : GetUpMontageFront;
 }
@@ -56,7 +56,7 @@ void AGASPCharacter::StartRagdollingImplementation()
 	{
 		return;
 	}
-
+	
 	GetMesh()->bUpdateJointsFromAnimation = true; // Required for the flail animation to work properly.
 
 	if (!GetMesh()->IsRunningParallelEvaluation() && GetMesh()->GetBoneSpaceTransforms().Num() > 0)
@@ -100,7 +100,6 @@ void AGASPCharacter::StartRagdollingImplementation()
 	{
 		// Limit the ragdoll's speed for a few frames, because for some unclear reason,
 		// it can get a much higher initial speed than the character's last speed.
-
 		static constexpr auto MinSpeedLimit{200.0f};
 
 		RagdollingState.SpeedLimitFrameTimeRemaining = 8;
@@ -121,6 +120,7 @@ void AGASPCharacter::StartRagdollingImplementation()
 	}
 
 	// Clear the character movement mode and set the locomotion action to ragdolling.
+	// TODO: maybe replace NAME_None to DefaultModeNames::Falling or create new movement mode?
 	GetMoverComponent()->QueueNextMode(NAME_None);
 
 	SetLocomotionAction(LocomotionActionTags::Ragdoll);
@@ -178,8 +178,9 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 	// as the character's location, we don't do that because the camera depends on the
 	// capsule's bottom location, so its removal will cause the camera to behave erratically.
 	bool bGrounded;
-	SetActorLocation(RagdollTraceGround(bGrounded), false);
-
+	const FVector NewLocation{RagdollTraceGround(bGrounded)};
+	SetActorLocation(NewLocation, false);
+	
 	{
 		const auto Location{GetActorLocation()};
 		GetMesh()->SetWorldLocation({
@@ -257,15 +258,11 @@ FVector AGASPCharacter::RagdollTraceGround(bool& bGrounded) const
 	const FVector TraceStart{RagdollLocation.X, RagdollLocation.Y, RagdollLocation.Z + 2.0f * CapsuleRadius};
 	const FVector TraceEnd{RagdollLocation.X, RagdollLocation.Y, RagdollLocation.Z - CapsuleHalfHeight + CapsuleRadius};
 
-	// TODO
-	// const auto CollisionChannel{MovementComponent->UpdatedComponent->GetCollisionObjectType()};
-
-	const auto CollisionChannel{ECC_WorldDynamic};
+	const auto CollisionChannel{GetMoverComponent()->GetUpdatedComponent()->GetCollisionObjectType()};
 
 	FCollisionQueryParams QueryParameters{__FUNCTION__, false, this};
 	FCollisionResponseParams CollisionResponses;
-	// TODO
-	// MovementComponent->InitCollisionParams(QueryParameters, CollisionResponses);
+	GetMoverComponent()->InitCollisionParams(QueryParameters, CollisionResponses);
 
 	FHitResult Hit;
 	bGrounded = GetWorld()->SweepSingleByChannel(Hit, TraceStart, TraceEnd, FQuat::Identity,
@@ -350,8 +347,8 @@ void AGASPCharacter::StopRagdollingImplementation()
 	{
 		return;
 	}
-
-	UGASPAnimInstance* AnimationInstance = {Cast<UGASPAnimInstance>(GetMesh()->GetAnimInstance())};
+	
+	auto* AnimationInstance{Cast<UGASPAnimInstance>(GetMesh()->GetAnimInstance())};
 	auto& FinalRagdollPose{AnimationInstance->SnapshotFinalRagdollPose()};
 
 	const auto PelvisTransform{GetMesh()->GetSocketTransform(NAME_pelvis)};
@@ -359,7 +356,7 @@ void AGASPCharacter::StopRagdollingImplementation()
 
 	// Disable mesh physics simulation and enable capsule collision.
 	GetMesh()->bUpdateJointsFromAnimation = false;
-
+	
 	GetMesh()->SetSimulatePhysics(false);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	GetMesh()->SetCollisionObjectType(ECC_Pawn);
@@ -370,7 +367,6 @@ void AGASPCharacter::StopRagdollingImplementation()
 	const auto NewActorLocation{RagdollTraceGround(bGrounded)};
 
 	// Determine whether the ragdoll is facing upward or downward and set the actor rotation accordingly.
-
 	const auto bRagdollFacingUpward{FMath::UnwindDegrees(PelvisRotation.Roll) <= 0.0f};
 
 	auto NewActorRotation{GetActorRotation()};
@@ -403,11 +399,8 @@ void AGASPCharacter::StopRagdollingImplementation()
 
 	// Restore the pelvis transform to the state it was in before we changed
 	// the character and mesh transforms to keep its world transform unchanged.
-
 	const auto& ReferenceSkeleton{GetMesh()->GetSkinnedAsset()->GetRefSkeleton()};
-
-	const auto PelvisBoneIndex{ReferenceSkeleton.FindBoneIndex(NAME_pelvis)};
-	if (PelvisBoneIndex >= 0)
+	if (const auto PelvisBoneIndex{ReferenceSkeleton.FindBoneIndex(NAME_pelvis)}; PelvisBoneIndex >= 0)
 	{
 		// We expect the pelvis bone to be the root bone or attached to it, so we can safely use the mesh transform here.
 		FinalRagdollPose.LocalTransforms[PelvisBoneIndex] = PelvisTransform.GetRelativeTransform(
@@ -416,20 +409,16 @@ void AGASPCharacter::StopRagdollingImplementation()
 
 	// If the ragdoll is on the ground, set the movement mode to walking and play a get up montage. If not, set
 	// the movement mode to falling and update the character movement velocity to match the last ragdoll velocity.
-
 	if (bGrounded)
 	{
 		GetMoverComponent()->QueueNextMode(DefaultModeNames::Walking);
 		UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
 			GetMoverComponent(), SelectGetUpMontage(bRagdollFacingUpward));
-		//AnimationInstance->Montage_Play(SelectGetUpMontage(bRagdollFacingUpward));
 	}
 	else
 	{
 		GetMoverComponent()->QueueNextMode(DefaultModeNames::Falling);
 		//TODO
-		//MovementComponent->Velocity = RagdollingState.Velocity;
-
 		auto* SyncState = GetMoverComponent()->GetSyncState().SyncStateCollection.FindMutableDataByType<
 			FMoverDefaultSyncState>();
 		SyncState->SetTransforms_WorldSpace(SyncState->GetLocation_WorldSpace(), SyncState->GetOrientation_WorldSpace(),

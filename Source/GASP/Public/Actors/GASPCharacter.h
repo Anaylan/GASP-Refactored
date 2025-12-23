@@ -8,6 +8,7 @@
 #include "Types/StructTypes.h"
 #include "GASPCharacter.generated.h"
 
+enum class EStanceMode : uint8;
 class UNavMoverComponent;
 class UGASPMoverComponent;
 
@@ -27,9 +28,9 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 	TObjectPtr<class UCapsuleComponent> CapsuleComponent;
 
 	UPROPERTY(BlueprintGetter=GetGait, ReplicatedUsing=OnRep_AllowedGait, Transient)
-	FGameplayTag AllowedGait{GaitTags::Run};
+	FGameplayTag AllowedGait{FGameplayTag::EmptyTag};
 	UPROPERTY(BlueprintGetter=GetRotationMode, ReplicatedUsing=OnRep_AllowedRotationMode, Transient)
-	FGameplayTag AllowedRotationMode{RotationTags::Strafe};
+	FGameplayTag AllowedRotationMode{FGameplayTag::EmptyTag};
 	UPROPERTY(BlueprintGetter=GetMovementMode, ReplicatedUsing=OnRep_AllowedMovementMode, Transient)
 	FGameplayTag AllowedMovementMode{MovementModeTags::Grounded};
 	UPROPERTY(BlueprintGetter=GetStanceMode, ReplicatedUsing=OnRep_AllowedStanceMode, Transient)
@@ -57,12 +58,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components", Replicated)
 	TObjectPtr<class UGASPTraversalComponent> TraversalComponent{};
 
-	// UPROPERTY(BlueprintReadOnly)
-	// FGASPMoverInputs MoverInputs_PreSim{};
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	FGASPMoverInputs MoverInputs_PostSim{};
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	FGASPInputState PlayerInputState{};
 
 	// Called when the game starts or when spawned
@@ -82,7 +80,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Replicated, Transient)
 	FVector_NetQuantize RagdollTargetLocation{ForceInit};
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State|Character", Transient)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character", Transient)
 	FRagdollingState RagdollingState;
 
 	UPROPERTY(EditDefaultsOnly)
@@ -211,7 +209,7 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode);
 
-	void LinkAnimInstance(const UChooserTable* DataTable, const FGameplayTag OldState, const FGameplayTag State);
+	void LinkAnimInstance(const UChooserTable* DataTable) const;
 
 	// Sets default values for this character's properties
 	explicit AGASPCharacter(const FObjectInitializer& ObjectInitializer);
@@ -366,6 +364,7 @@ private:
 	UFUNCTION(Server, Unreliable)
 	void ServerSetRagdollTargetLocation(const FVector_NetQuantize& NewTargetLocation);
 
+	// TODO: maybe we should move this method to the mover component
 	void RefreshRagdolling(float DeltaTime);
 
 	FVector RagdollTraceGround(bool& bGrounded) const;

@@ -41,17 +41,19 @@ void UMovementMode_Sliding::GenerateWalkMove_Implementation(FMoverTickStartData&
 	FHitResult FloorHit{};
 	GetMoverComponent()->TryGetFloorCheckHitResult(FloorHit);
 
-	const float SlopeAngle{
-		static_cast<float>(180.0 / UE_DOUBLE_PI * FMath::Acos(
-			FVector::DotProduct(FloorHit.Normal, DesiredVelocity.GetSafeNormal())) - 90.f)
-	};
+	float SlopeAngle{0.0f};
+	if (const float VSizeSq = DesiredVelocity.SizeSquared(); VSizeSq > KINDA_SMALL_NUMBER)
+	{
+		const float SlopeSin = FVector::DotProduct(FloorHit.Normal, DesiredVelocity * FMath::InvSqrt(VSizeSq));
+		SlopeAngle = -FMath::RadiansToDegrees(FMath::FastAsin(SlopeSin));
+	}
 
 	MaxSpeedOverride = InitialBoost
 		                   ? InitialBoostSpeed
-		                   : SlopeAngle > ShallowSlopeAngle * -1.f
+		                   : SlopeAngle > -ShallowSlopeAngle
 		                   ? FlatGroundSpeed
 		                   : FMath::GetMappedRangeValueClamped<float, float>(
-			                   {ShallowSlopeAngle * -1.f, SteepSlopeAngle * -1.f}, {ShallowSlopeSpeed, SteepSlopeSpeed},
+			                   {-ShallowSlopeAngle, -SteepSlopeAngle}, {ShallowSlopeSpeed, SteepSlopeSpeed},
 			                   SlopeAngle);
 
 	Acceleration = InitialBoost ? AfterBoostAcceleration : InitialBoostAcceleration;

@@ -10,7 +10,7 @@ UMovementMode_Walking::UMovementMode_Walking(const FObjectInitializer& ObjectIni
 {
 	SharedSettingsClasses.Add(UStanceSettings::StaticClass());
 	Transitions.Add(CreateDefaultSubobject<UMovementModeTransition_ToSlide>(FName{TEXT("ToSlide")}));
-	
+
 	Acceleration = 1000.f;
 	TurningStrength = 8.f;
 	FacingSmoothingTime = .5f;
@@ -23,15 +23,25 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
                                                             FVector& InOutAngularVelocityDegrees,
                                                             FVector& InOutVelocity)
 {
+	SCOPE_CYCLE_COUNTER(STAT_GenerateWalkMove);
+	
 	const auto* CharacterInputs = StartState.InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>();
 
-	float CurrentOffset{static_cast<float>((CurrentFacing.Rotator() - DesiredFacing.Rotator()).GetNormalized().Yaw)};
+	// const float CurrentOffset{static_cast<float>((CurrentFacing.Rotator() - DesiredFacing.Rotator()).GetNormalized().Yaw)};
 
-	float RotRad{
+	const FVector FwdCurrent = CurrentFacing.GetForwardVector();
+	const FVector FwdDesired = DesiredFacing.GetForwardVector();
+
+	const float CurrentOffset = FMath::RadiansToDegrees(FMath::Atan2(
+		FwdDesired.X * FwdCurrent.Y - FwdDesired.Y * FwdCurrent.X,
+		FwdDesired.X * FwdCurrent.X + FwdDesired.Y * FwdCurrent.Y
+	));
+
+	const float RotRad{
 		FMath::DegreesToRadians(FMath::Clamp(CharacterInputs->RotationOffset, CurrentOffset - 179.f,
 		                                     CurrentOffset + 179.f))
 	};
-	auto OverridenDesiredFacing{DesiredFacing * FQuat{FVector::UpVector, RotRad}};
+	const auto OverridenDesiredFacing{DesiredFacing * FQuat{FVector::UpVector, RotRad}};
 
 	if (CharacterInputs->Stance == StanceTags::Crouching)
 	{

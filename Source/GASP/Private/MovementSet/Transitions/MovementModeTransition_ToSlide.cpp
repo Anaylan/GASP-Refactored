@@ -1,7 +1,7 @@
 #include "MovementSet/Transitions/MovementModeTransition_ToSlide.h"
 #include "MoverComponent.h"
 #include "MoverSimulationTypes.h"
-#include "Types/MovementTypes.h"
+#include "MovementSet/Modes/MovementMode_Sliding.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MovementModeTransition_ToSlide)
 

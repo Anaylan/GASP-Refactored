@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "CoreMinimal.h"
 #include "Actors/GASPCharacter.h"
 #include "GASPCharacterExample.generated.h"
 

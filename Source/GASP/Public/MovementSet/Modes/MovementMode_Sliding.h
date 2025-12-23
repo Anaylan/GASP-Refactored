@@ -3,6 +3,11 @@
 #include "MovementMode_Smoothing.h"
 #include "MovementMode_Sliding.generated.h"
 
+namespace MovementModeNames
+{
+	const FName Sliding = TEXT("Sliding");
+}
+
 /**
  * 
  */
@@ -18,11 +23,12 @@ public:
 	                                             const FVector& DesiredVelocity, const FQuat& DesiredFacing,
 	                                             const FQuat& CurrentFacing, FVector& InOutAngularVelocityDegrees,
 	                                             FVector& InOutVelocity) override;
-virtual void Activate() override;
+	virtual void Activate() override;
+
 private:
 	/** Please add a variable description */
 	UPROPERTY(EditDefaultsOnly, Category="Default")
-	uint8 InitialBoost:1{false};
+	uint8 InitialBoost : 1{false};
 
 public:
 	/** Please add a variable description */

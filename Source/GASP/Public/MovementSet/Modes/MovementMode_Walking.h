@@ -3,6 +3,8 @@
 #include "MovementMode_Smoothing.h"
 #include "MovementMode_Walking.generated.h"
 
+DECLARE_STATS_GROUP(TEXT("MovementWalkStats"), STATGROUP_Movement_Walk, STATCAT_Advanced);
+DECLARE_CYCLE_STAT(TEXT("GenerateWalkMove Logic"), STAT_GenerateWalkMove, STATGROUP_Movement_Walk);
 /**
  * 
  */

@@ -61,11 +61,6 @@ void UGASPTraversalComponent::BeginPlay()
 	{
 		AnimInstance = Cast<UGASPAnimInstance>(MeshComponent->GetAnimInstance());
 	}
-}
-
-void UGASPTraversalComponent::InitializeComponent()
-{
-	Super::InitializeComponent();
 
 	StreamableHandle = StreamableManager.RequestAsyncLoad(TraversalAnimationsChooserTable.ToSoftObjectPath(),
 	                                                      FStreamableDelegate::CreateLambda([this]()
@@ -444,13 +439,12 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 	UpdateWarpTargets();
 
 	auto* MontageToPlay{const_cast<UAnimMontage*>(TraversalCheckResult.ChosenMontage.Get())};
-
 	const auto MontageProxy = UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
 		MoverComponent.Get(), MontageToPlay, TraversalCheckResult.PlayRate, TraversalCheckResult.StartTime);
-
-	MontageProxy->OnCompleted.AddDynamic(this, &ThisClass::OnCompleteTraversal);
-	MontageProxy->OnBlendOut.AddDynamic(this, &ThisClass::OnCompleteTraversal);
-	MontageProxy->OnInterrupted.AddDynamic(this, &ThisClass::OnCompleteTraversal);
+	
+	MontageProxy->OnCompleted.AddUniqueDynamic(this, &ThisClass::OnCompleteTraversal);
+	MontageProxy->OnBlendOut.AddUniqueDynamic(this, &ThisClass::OnCompleteTraversal);
+	MontageProxy->OnInterrupted.AddUniqueDynamic(this, &ThisClass::OnCompleteTraversal);
 
 	bDoingTraversalAction = true;
 	CapsuleComponent->IgnoreComponentWhenMoving(TraversalCheckResult.HitComponent, true);

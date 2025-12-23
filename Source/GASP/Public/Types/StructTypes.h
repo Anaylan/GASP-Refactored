@@ -276,10 +276,10 @@ struct GASP_API FRagdollingState
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "State|Character")
 	FVector Velocity{ForceInit};
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character", meta = (ForceUnits = "N"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "State|Character", meta = (ForceUnits = "N"))
 	float PullForce{0.0f};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character", meta = (ClampMin = 0))

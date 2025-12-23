@@ -180,8 +180,6 @@ protected:
 	 */
 	virtual void BeginPlay() override;
 
-	virtual void InitializeComponent() override;
-
 	/**
 	 * Configures network replication for this component
 	 * @param OutLifetimeProps Array of lifetime replicated properties

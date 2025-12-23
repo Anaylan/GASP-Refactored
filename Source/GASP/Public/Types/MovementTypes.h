@@ -6,10 +6,6 @@
 #include "Utils/GASPMath.h"
 #include "MovementTypes.generated.h"
 
-namespace MovementModeNames
-{
-	const FName Sliding = TEXT("Sliding");
-}
 
 /**
  *
@@ -122,12 +118,12 @@ struct GASP_API FGASPInputState
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag DesiredRotationMode{RotationTags::OrientToMovement};
 
-	UPROPERTY(BlueprintReadOnly)
-	FGameplayTag DesiredGait{GaitTags::Walk};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag DesiredGait{GaitTags::Run};
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag DesiredStance{StanceTags::Standing};
 };

@@ -103,10 +103,6 @@
       "Enabled": true
     },
     {
-      "Name": "SmartObjects",
-      "Enabled": true
-    },
-    {
       "Name": "CurveExpression",
       "Enabled": true
     },

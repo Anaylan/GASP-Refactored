@@ -17,7 +17,7 @@ AGASPCharacterExample::AGASPCharacterExample(const FObjectInitializer& ObjectIni
 
 void AGASPCharacterExample::PossessedBy(AController* NewController)
 {
-	if (APlayerController* PC = Cast<APlayerController>(NewController))
+	if (auto* PC = Cast<APlayerController>(NewController))
 	{
 		GameplayCamera->ActivateCameraForPlayerController(PC);
 	}
@@ -40,7 +40,7 @@ void AGASPCharacterExample::SprintAction(bool bPressed)
 	if (bPressed)
 	{
 		PlayerInputState.DesiredGait = GaitTags::Sprint;
-		if (GetStanceMode() == StanceTags::Crouching)
+		if (GetStanceMode() == StanceTags::Standing)
 		{
 			PlayerInputState.DesiredStance = StanceTags::Standing;
 		}

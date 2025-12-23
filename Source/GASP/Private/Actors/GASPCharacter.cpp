@@ -10,6 +10,7 @@
 #include "Utils/GASPLinkedAnimInstanceSet.h"
 #include "DefaultMovementSet/NavMoverComponent.h"
 #include "MovementSet/GASPMoverComponent.h"
+#include "MovementSet/Modes/MovementMode_Sliding.h"
 #include "Utils/GASPBlueprintLibrary.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPCharacter)
@@ -283,7 +284,7 @@ bool AGASPCharacter::CanSprint()
 	}
 
 	const float Dot = FVector::DotProduct(MoverInputs_PostSim.GetMoveInput().GetSafeNormal2D(),
-	                                      GetActorForwardVector().GetSafeNormal2D());
+	                                      MoverInputs_PostSim.OrientationIntent.GetSafeNormal2D());
 
 	return Dot > FMath::Cos(FMath::DegreesToRadians(50.f));
 }
@@ -405,8 +406,6 @@ void AGASPCharacter::ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmd
 	CharacterInputs.ControlRotationRate = ControlRotationRate;
 	CharacterInputs.Stance = PlayerInputState.DesiredStance;
 	GetMovementDirectionAddOffset(CharacterInputs.MovementDirection, CharacterInputs.RotationOffset);
-
-	// MoverInputs_PreSim = CharacterInputs;
 }
 
 void AGASPCharacter::GetMovementDirectionAddOffset(EMovementDirection& MovementDirection, float& RotationOffset)
@@ -609,9 +608,7 @@ FRotator AGASPCharacter::GetAimingRotation()
 FVector AGASPCharacter::GetNavAgentLocation() const
 {
 	FVector AgentLocation = FNavigationSystem::InvalidLocation;
-	const USceneComponent* UpdatedComponent = CharacterMotionComponent
-		                                          ? CharacterMotionComponent->GetUpdatedComponent()
-		                                          : nullptr;
+	const auto* UpdatedComponent = CharacterMotionComponent ? CharacterMotionComponent->GetUpdatedComponent() : nullptr;
 
 	if (NavMoverComponent)
 	{
@@ -677,21 +674,25 @@ bool AGASPCharacter::IsDoingTraversal() const
 
 FTraversalCheckInputs AGASPCharacter::GetTraversalCheckInputs() const
 {
-	const auto ForwardVector{GetActorForwardVector()};
 	if (AllowedMovementMode == MovementModeTags::InAir)
 	{
 		const auto Inputs{GetMoverState()};
 		return {
-			!Inputs.GetMoveInput().IsZero() ? Inputs.GetMoveInput().GetSafeNormal() : ForwardVector,
-			75.f, FVector::ZeroVector, {0.f, 0.f, 50.f}, 30.f, 86.f
+			!Inputs.GetMoveInput().IsZero() ? Inputs.GetMoveInput().GetSafeNormal() : GetActorForwardVector(),
+			75.f, FVector::ZeroVector, FVector::UpVector * 50.f, 30.f, 86.f
 		};
 	}
 
-	const FVector RotationVector = GetMoverComponent()->GetVelocity().Size2D() > 50.f
-		                               ? GetMoverComponent()->GetVelocity().GetSafeNormal()
-		                               : GetMoverComponent()->GetTargetOrientation().Vector();
+	const auto ForwardVector{
+		GetMoverComponent()->GetVelocity().Size2D() > 50.f
+			? GetMoverComponent()->GetVelocity().GetSafeNormal()
+			: GetMoverComponent()->GetTargetOrientation().Vector()
+	};
+
+
+	const auto ActorVelocity{GetActorRotation().UnrotateVector(GetMoverComponent()->GetVelocity())};
 	const float ClampedDistance = FMath::GetMappedRangeValueClamped<float, float>(
-		{0.f, 375.f}, {75.f, 350.f}, RotationVector.X);
+		{0.f, 375.f}, {75.f, 300.f}, ActorVelocity.X);
 
 	return {
 		ForwardVector, ClampedDistance, FVector::ZeroVector,
@@ -699,22 +700,14 @@ FTraversalCheckInputs AGASPCharacter::GetTraversalCheckInputs() const
 	};
 }
 
-void AGASPCharacter::LinkAnimInstance(const UChooserTable* DataTable, const FGameplayTag OldState,
-                                      const FGameplayTag State)
+void AGASPCharacter::LinkAnimInstance(const UChooserTable* DataTable) const
 {
-	if (!DataTable)
+	if (!DataTable || !GetMesh())
 	{
 		return;
 	}
-
-	// StateContainer.RemoveTag(OldState);
-	// StateContainer.AddLeafTag(State);
 
 	auto* MeshComponent = GetMesh();
-	if (!IsValid(MeshComponent))
-	{
-		return;
-	}
 	const auto* DataAsset{
 		static_cast<UGASPLinkedAnimInstanceSet*>(UChooserFunctionLibrary::EvaluateChooser(
 			this, DataTable, UGASPLinkedAnimInstanceSet::StaticClass()))
@@ -728,13 +721,13 @@ void AGASPCharacter::LinkAnimInstance(const UChooserTable* DataTable, const FGam
 
 void AGASPCharacter::OnPoseModeChanged_Implementation(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode)
 {
-	LinkAnimInstance(PosesTable, OldPoseMode, NewPoseMode);
+	LinkAnimInstance(PosesTable);
 }
 
 void AGASPCharacter::OnOverlayModeChanged_Implementation(const FGameplayTag OldOverlayMode,
                                                          const FGameplayTag NewOverlayMode)
 {
-	LinkAnimInstance(OverlayTable, OldOverlayMode, NewOverlayMode);
+	LinkAnimInstance(OverlayTable);
 }
 
 void AGASPCharacter::OnRep_OverlayMode(const FGameplayTag& OldOverlayMode)
@@ -774,6 +767,7 @@ void AGASPCharacter::OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAct
 
 void AGASPCharacter::OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName)
 {
+	// TODO: add method or map for convert FName to FGameplayTag?
 	if (NewMovementModeName == DefaultModeNames::Flying)
 	{
 		SetMovementMode(MovementModeTags::Traverse);
@@ -790,17 +784,24 @@ void AGASPCharacter::OnMovementModeChanged(const FName& PreviousMovementModeName
 	{
 		SetMovementMode(MovementModeTags::Grounded);
 	}
+
+	// static TMap<FName, FGameplayTag> MovementModeTagMap{
+	// 	{DefaultModeNames::Walking, MovementModeTags::Grounded}, {DefaultModeNames::Falling, MovementModeTags::InAir},
+	// 	{DefaultModeNames::Flying, MovementModeTags::Traverse}, {MovementModeNames::Sliding, MovementModeTags::Slide}
+	// };
+	// const FGameplayTag& NewMovementMode = MovementModeTagMap.FindRef(NewMovementModeName);
+	// SetMovementMode(NewMovementMode.IsValid() ? NewMovementMode : MovementModeTags::Grounded);
+
+	if (PreviousMovementModeName == MovementModeNames::Sliding && PlayerInputState.DesiredGait == GaitTags::Sprint)
+	{
+		PlayerInputState.DesiredStance = StanceTags::Standing;
+	}
 }
 
 void AGASPCharacter::OnPreSimulateTick(const FMoverTimeStep& TimeStep, const FMoverInputCmdContext& InputCmd)
 {
-	auto CharacterInputs = InputCmd.InputCollection.FindMutableDataByType<FGASPMoverInputs>();
-	if (!CharacterInputs)
-	{
-		return;
-	}
-
-	if (CharacterInputs->Stance == StanceTags::Crouching)
+	if (auto CharacterInputs = InputCmd.InputCollection.FindMutableDataByType<FGASPMoverInputs>(); CharacterInputs->
+		Stance == StanceTags::Crouching)
 	{
 		GetMoverComponent()->Crouch();
 	}

@@ -117,8 +117,7 @@ FTransform UGASPAnimInstance::GetHandIKTransform(const FName HandIKSocketName, c
 bool UGASPAnimInstance::IsEnableSteering() const
 {
 	return ((BlendStackInputs.bLoop || BlendStack.bActive) && IsMoving()) || MovementMode.Current ==
-		MovementModeTags::InAir || MovementMode.
-		Current == MovementModeTags::Slide;
+		MovementModeTags::InAir || MovementMode.Current == MovementModeTags::Slide;
 }
 
 bool UGASPAnimInstance::JustTeleported() const
@@ -301,6 +300,12 @@ void UGASPAnimInstance::RefreshTrajectory(const float DeltaSeconds)
 	TrajectoryInfo.PreviousFutureFacingDelta = TrajectoryInfo.FutureFacingDelta;
 	TrajectoryInfo.FutureFacingDelta = GetTotalFacingDelta({0.f, 0.25f, 0.75f, 1.5f});
 
+	if (FMath::Abs(TrajectoryInfo.FutureFacingDelta - TrajectoryInfo.PreviousFutureFacingDelta) > 200.f && RotationMode.
+		Current != RotationTags::OrientToMovement)
+	{
+		MovementDirection.Current = MovementDirection.Recent = EMovementDirection::B;
+	}
+
 	UPoseSearchTrajectoryLibrary::GetTransformTrajectoryAngularVelocity(
 		Trajectory, -.4f, -.3f, TrajectoryInfo.PastAngularVelocity);
 	UPoseSearchTrajectoryLibrary::GetTransformTrajectoryAngularVelocity(
@@ -315,23 +320,23 @@ void UGASPAnimInstance::RefreshStateContainer()
 	PreviousStateContainer.Reset();
 	StateContainer.Reset();
 
-	RecentStateContainer.AddTagFast(MovementMode.Recent);
-	RecentStateContainer.AddTagFast(Gait.Recent);
-	RecentStateContainer.AddTagFast(MovementState.Recent);
-	RecentStateContainer.AddTagFast(RotationMode.Recent);
-	RecentStateContainer.AddTagFast(StanceMode.Recent);
+	RecentStateContainer.AddTag(MovementMode.Recent);
+	RecentStateContainer.AddTag(Gait.Recent);
+	RecentStateContainer.AddTag(MovementState.Recent);
+	RecentStateContainer.AddTag(RotationMode.Recent);
+	RecentStateContainer.AddTag(StanceMode.Recent);
 
-	PreviousStateContainer.AddTagFast(MovementMode.LastFrame);
-	PreviousStateContainer.AddTagFast(Gait.LastFrame);
-	PreviousStateContainer.AddTagFast(MovementState.LastFrame);
-	PreviousStateContainer.AddTagFast(RotationMode.LastFrame);
-	PreviousStateContainer.AddTagFast(StanceMode.LastFrame);
+	PreviousStateContainer.AddTag(MovementMode.LastFrame);
+	PreviousStateContainer.AddTag(Gait.LastFrame);
+	PreviousStateContainer.AddTag(MovementState.LastFrame);
+	PreviousStateContainer.AddTag(RotationMode.LastFrame);
+	PreviousStateContainer.AddTag(StanceMode.LastFrame);
 
-	StateContainer.AddTagFast(MovementMode.Current);
-	StateContainer.AddTagFast(Gait.Current);
-	StateContainer.AddTagFast(MovementState.Current);
-	StateContainer.AddTagFast(RotationMode.Current);
-	StateContainer.AddTagFast(StanceMode.Current);
+	StateContainer.AddTag(MovementMode.Current);
+	StateContainer.AddTag(Gait.Current);
+	StateContainer.AddTag(MovementState.Current);
+	StateContainer.AddTag(RotationMode.Current);
+	StateContainer.AddTag(StanceMode.Current);
 }
 
 float UGASPAnimInstance::GetTotalFacingDelta(TArray<float> Times) const
@@ -524,11 +529,6 @@ float UGASPAnimInstance::GetTrajectoryTurnAngle() const
 {
 	const FVector2D CurrentVelocity2D(CharacterInfo.Velocity.X, CharacterInfo.Velocity.Y);
 	const FVector2D FutureVelocity2D(TrajectoryInfo.FutureVelocity.X, TrajectoryInfo.FutureVelocity.Y);
-
-	if (CurrentVelocity2D.IsNearlyZero() || FutureVelocity2D.IsNearlyZero())
-	{
-		return 0.0f;
-	}
 
 	const float Dot = FVector2D::DotProduct(CurrentVelocity2D, FutureVelocity2D);
 	const float Cross = FVector2D::CrossProduct(CurrentVelocity2D, FutureVelocity2D);
@@ -756,9 +756,9 @@ FVector2D UGASPAnimInstance::GetAOValue() const
 
 bool UGASPAnimInstance::IsCircling() const
 {
-	return FMath::Abs(GetTrajectoryTurnAngle()) > 50.f && ((TrajectoryInfo.PastAngularVelocity.Z <
-		-200.f && TrajectoryInfo.CurrentAngularVelocity.Z < -200.f) || (TrajectoryInfo.PastAngularVelocity.Z >
-		200.f && TrajectoryInfo.CurrentAngularVelocity.Z > 200.f));
+	return FMath::Abs(GetTrajectoryTurnAngle()) > 50.f && ((TrajectoryInfo.PastAngularVelocity.Z < -200.f &&
+		TrajectoryInfo.CurrentAngularVelocity.Z < -200.f) || (TrajectoryInfo.PastAngularVelocity.Z > 200.f &&
+		TrajectoryInfo.CurrentAngularVelocity.Z > 200.f));
 }
 
 bool UGASPAnimInstance::CanOverlayTransition() const
