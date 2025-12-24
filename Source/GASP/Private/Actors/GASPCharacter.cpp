@@ -54,20 +54,19 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 	CapsuleComponent->SetCanEverAffectNavigation(false);
 	CapsuleComponent->bDynamicObstacle = true;
 	RootComponent = CapsuleComponent;
-
+	
 	Mesh = CreateOptionalDefaultSubobject<USkeletalMeshComponent>(MeshComponentName);
 	if (Mesh)
 	{
-		Mesh->AlwaysLoadOnClient = true;
-		Mesh->AlwaysLoadOnServer = true;
 		Mesh->bOwnerNoSee = false;
 		Mesh->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 		Mesh->bCastDynamicShadow = true;
 		Mesh->bAffectDynamicIndirectLighting = true;
 		Mesh->PrimaryComponentTick.TickGroup = TG_PrePhysics;
 		Mesh->SetupAttachment(CapsuleComponent);
-		static FName MeshCollisionProfileName(TEXT("CharacterMesh"));
+		static FName MeshCollisionProfileName(TEXT("NoCollision"));
 		Mesh->SetCollisionProfileName(MeshCollisionProfileName);
+		Mesh->SetCollisionEnabled(ECollisionEnabled::ProbeOnly);
 		Mesh->SetGenerateOverlapEvents(false);
 		Mesh->SetCanEverAffectNavigation(false);
 
@@ -79,7 +78,7 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarping"));
 	TraversalComponent = CreateDefaultSubobject<UGASPTraversalComponent>(TEXT("TraversalComponent"));
 
-	// NavMoverComponent = CreateDefaultSubobject<UNavMoverComponent>(TEXT("NavMoverComponent"));
+	NavMoverComponent = CreateDefaultSubobject<UNavMoverComponent>(TEXT("NavMoverComponent"));
 }
 
 // Called when the game starts or when spawned
@@ -227,6 +226,7 @@ void AGASPCharacter::PostInitializeComponents()
 		if (auto* UpdatedComponent = CharacterMotionComponent->GetUpdatedComponent())
 		{
 			UpdatedComponent->SetCanEverAffectNavigation(bCanAffectNavigationGeneration);
+
 		}
 	}
 
@@ -235,7 +235,7 @@ void AGASPCharacter::PostInitializeComponents()
 	{
 		TwinStickMode = CVar ? CVar->GetInt() == 1 : false;
 	});
-
+	
 	// MoverInputs_PreSim.OrientationIntent = GetActorForwardVector();
 }
 
@@ -688,8 +688,7 @@ FTraversalCheckInputs AGASPCharacter::GetTraversalCheckInputs() const
 			? GetMoverComponent()->GetVelocity().GetSafeNormal()
 			: GetMoverComponent()->GetTargetOrientation().Vector()
 	};
-
-
+	
 	const auto ActorVelocity{GetActorRotation().UnrotateVector(GetMoverComponent()->GetVelocity())};
 	const float ClampedDistance = FMath::GetMappedRangeValueClamped<float, float>(
 		{0.f, 375.f}, {75.f, 300.f}, ActorVelocity.X);

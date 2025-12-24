@@ -6,6 +6,7 @@
 #include "Interfaces/GASPFoleyAudioBankInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Types/TagTypes.h"
+#include "VisualLogger/VisualLoggerKismetLibrary.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(AnimNotify_FoleyEvent)
 
@@ -47,7 +48,7 @@ void UAnimNotify_FoleyEvent::Notify(USkeletalMeshComponent* MeshComp, UAnimSeque
 		return;
 	}
 
-	const UWorld* WorldContext = Owner->GetWorld();
+	auto* WorldContext = Owner->GetWorld();
 
 	const auto SocketTransform{MeshComp->GetSocketTransform(SocketName)};
 
@@ -98,8 +99,9 @@ void UAnimNotify_FoleyEvent::Notify(USkeletalMeshComponent* MeshComp, UAnimSeque
 		return;
 	}
 
-	// UVisualLoggerKismetLibrary::LogSphere(WorldContext->GetClass(), SocketTransform.GetLocation(), 5.f, VisLogDebugText,
-	//                                       VisLogDebugColor, FName(TEXT("VisLogFoley")));
+	FVisualLogger::SphereLogf(WorldContext, FName(TEXT("VisLogFoley")), ELogVerbosity::Log,
+	                          SocketTransform.GetLocation(), 5.f, VisLogDebugColor.ToFColor(true), false, TEXT("%s"),
+	                          *VisLogDebugText);
 	DrawDebugSphere(WorldContext, SocketTransform.GetLocation(), 10.f, 12, VisLogDebugColor.ToRGBE(),
 	                false, 4.f);
 #endif

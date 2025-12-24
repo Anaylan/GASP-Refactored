@@ -14,8 +14,4 @@ public:
 
 	virtual void InitCollisionParams(FCollisionQueryParams& OutParams,
 	                                 FCollisionResponseParams& OutResponseParam) const;
-
-protected:
-	// Called when the game starts
-	virtual FVector GetFeetLocation();
 };

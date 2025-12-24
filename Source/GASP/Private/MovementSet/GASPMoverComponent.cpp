@@ -21,15 +21,6 @@ UGASPMoverComponent::UGASPMoverComponent()
 	bSyncInputsForSimProxy = true;
 }
 
-FVector UGASPMoverComponent::GetFeetLocation()
-{
-	if (const auto* Capsule = Cast<UCapsuleComponent>(UpdatedComponent))
-	{
-		return Capsule->GetComponentLocation() + (-FVector::UpVector * Capsule->GetScaledCapsuleHalfHeight());
-	}
-	return FVector::ZeroVector;
-}
-
 void UGASPMoverComponent::InitCollisionParams(FCollisionQueryParams& OutParams,
                                               FCollisionResponseParams& OutResponseParam) const
 {

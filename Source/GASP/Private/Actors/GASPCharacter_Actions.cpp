@@ -15,8 +15,7 @@ UAnimMontage* AGASPCharacter::SelectGetUpMontage(const bool bRagdollFacingUpward
 
 bool AGASPCharacter::IsRagdollingAllowedToStart() const
 {
-	return LocomotionAction != LocomotionActionTags::Ragdoll && GetMesh()->GetBodyInstance(NAME_pelvis) != nullptr &&
-		GetMesh()->GetBodyInstance(NAME_spine_03) != nullptr && *NAME_pelvis.ToString() && *NAME_spine_03.ToString();
+	return LocomotionAction != LocomotionActionTags::Ragdoll && *NAME_pelvis.ToString() && *NAME_spine_03.ToString();
 }
 
 void AGASPCharacter::StartRagdolling()
@@ -56,7 +55,7 @@ void AGASPCharacter::StartRagdollingImplementation()
 	{
 		return;
 	}
-	
+
 	GetMesh()->bUpdateJointsFromAnimation = true; // Required for the flail animation to work properly.
 
 	if (!GetMesh()->IsRunningParallelEvaluation() && GetMesh()->GetBoneSpaceTransforms().Num() > 0)
@@ -180,11 +179,10 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 	bool bGrounded;
 	const FVector NewLocation{RagdollTraceGround(bGrounded)};
 	SetActorLocation(NewLocation, false);
-	
+
 	{
-		const auto Location{GetActorLocation()};
 		GetMesh()->SetWorldLocation({
-			Location.X, Location.Y, Location.Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
+			NewLocation.X, NewLocation.Y, NewLocation.Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
 		});
 	}
 
@@ -304,8 +302,7 @@ void AGASPCharacter::ConstraintRagdollSpeed() const
 
 bool AGASPCharacter::IsRagdollingAllowedToStop() const
 {
-	return LocomotionAction == LocomotionActionTags::Ragdoll && GetMesh()->GetBodyInstance(NAME_pelvis) != nullptr &&
-		GetMesh()->GetBodyInstance(NAME_spine_03) != nullptr && *NAME_pelvis.ToString() && *NAME_spine_03.ToString();
+	return LocomotionAction == LocomotionActionTags::Ragdoll && *NAME_pelvis.ToString() && *NAME_spine_03.ToString();
 }
 
 bool AGASPCharacter::StopRagdolling()
@@ -347,7 +344,7 @@ void AGASPCharacter::StopRagdollingImplementation()
 	{
 		return;
 	}
-	
+
 	auto* AnimationInstance{Cast<UGASPAnimInstance>(GetMesh()->GetAnimInstance())};
 	auto& FinalRagdollPose{AnimationInstance->SnapshotFinalRagdollPose()};
 
@@ -356,9 +353,9 @@ void AGASPCharacter::StopRagdollingImplementation()
 
 	// Disable mesh physics simulation and enable capsule collision.
 	GetMesh()->bUpdateJointsFromAnimation = false;
-	
+
 	GetMesh()->SetSimulatePhysics(false);
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::ProbeOnly);
 	GetMesh()->SetCollisionObjectType(ECC_Pawn);
 
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
