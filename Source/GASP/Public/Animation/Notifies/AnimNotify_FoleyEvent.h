@@ -57,15 +57,4 @@ public:
 
 	UFUNCTION(Blueprintable, Category="Foley|Audio")
 	bool CanPlayFootstepEffects(AActor* Owner) const;
-
-	void SpawnSound(const USkeletalMeshComponent* Mesh, const struct FGASPFootstepSoundSettings& SoundSettings,
-	                const FVector& FootstepLocation) const;
-
-	void SpawnDecal(const USkeletalMeshComponent* Mesh, const struct FGASPFootstepDecalSettings& DecalSettings,
-	                const FVector& FootstepLocation, const FRotator& FootstepRotation,
-	                const FHitResult& FootstepHit) const;
-
-	void SpawnParticleSystem(const USkeletalMeshComponent* Mesh,
-	                         const struct FGASPFootstepParticleSettings& ParticleSystemSettings,
-	                         const FVector& FootstepLocation, const FRotator& FootstepRotation) const;
 };

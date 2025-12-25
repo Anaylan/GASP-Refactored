@@ -115,13 +115,6 @@ void AGASPCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 
 	GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
-
-	if (const auto MoverComp = GetMoverComponent())
-	{
-		MoverComp->OnMovementModeChanged.RemoveAll(this);
-		MoverComp->OnPreSimulationTick.RemoveAll(this);
-		MoverComp->OnStanceChanged.RemoveAll(this);
-	}
 }
 
 // Called every frame
@@ -147,11 +140,6 @@ void AGASPCharacter::Tick(float DeltaTime)
 	{
 		RefreshGait();
 		RefreshRotationMode();
-	}
-	// TODO: Maybe we should transfer audio in animation?
-	else if (AllowedMovementMode == MovementModeTags::Slide)
-	{
-		RefreshSlidingAudio();
 	}
 }
 
@@ -541,10 +529,6 @@ void AGASPCharacter::RefreshRotationMode()
 		return;
 	}
 	SetRotationMode(PlayerInputState.DesiredRotationMode);
-}
-
-void AGASPCharacter::RefreshSlidingAudio()
-{
 }
 
 const FGASPMoverInputs& AGASPCharacter::GetMoverState() const

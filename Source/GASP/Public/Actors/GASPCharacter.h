@@ -129,7 +129,6 @@ protected:
 	virtual void RefreshControlRotationRate(const float DeltaTime);
 	virtual void RefreshTwinStickMode();
 	virtual void RefreshRotationMode();
-	virtual void RefreshSlidingAudio();
 	virtual void RefreshMoverState();
 
 public:

@@ -10,7 +10,8 @@
 #include "Net/UnrealNetwork.h"
 #include "Engine/AssetManager.h"
 #include "MovementSet/GASPMoverComponent.h"
-#include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
+#include "DefaultMovementSet/LayeredMoves/AnimRootMotionLayeredMove.h"
+
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPTraversalComponent)
 
@@ -439,12 +440,58 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 	UpdateWarpTargets();
 
 	auto* MontageToPlay{const_cast<UAnimMontage*>(TraversalCheckResult.ChosenMontage.Get())};
-	const auto MontageProxy = UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
-		MoverComponent.Get(), MontageToPlay, TraversalCheckResult.PlayRate, TraversalCheckResult.StartTime);
+	AnimInstance->Montage_Play(MontageToPlay, TraversalCheckResult.PlayRate, EMontagePlayReturnType::MontageLength,
+	                           TraversalCheckResult.StartTime);
 
-	MontageProxy->OnCompleted.AddUniqueDynamic(this, &ThisClass::OnCompleteTraversal);
-	MontageProxy->OnBlendOut.AddUniqueDynamic(this, &ThisClass::OnCompleteTraversal);
-	MontageProxy->OnInterrupted.AddUniqueDynamic(this, &ThisClass::OnCompleteTraversal);
+	FOnMontageBlendingOutStarted BlendedOutEndedDelegate;
+	BlendedOutEndedDelegate.BindWeakLambda(this, [this](UAnimMontage* Montage, bool bInterrupted)
+	{
+		if (bInterrupted)
+		{
+			OnCompleteTraversal(NAME_None);
+		}
+	});
+	AnimInstance->Montage_SetBlendingOutDelegate(BlendedOutEndedDelegate, MontageToPlay);
+
+	FOnMontageEnded EndedDelegate;
+	EndedDelegate.BindWeakLambda(this, [this](UAnimMontage* Montage, bool bInterrupted)
+	{
+		if (!bInterrupted)
+		{
+			OnCompleteTraversal(NAME_None);
+		}
+	});
+	AnimInstance->Montage_SetEndDelegate(EndedDelegate, MontageToPlay);
+
+
+	if (auto* MontageInstance = AnimInstance->GetActiveInstanceForMontage(MontageToPlay))
+	{
+		// Disable the actual animation-driven root motion, in favor of our own layered move
+		MontageInstance->PushDisableRootMotion();
+
+		const float StartingMontagePosition = MontageInstance->GetPosition();
+		// position in seconds, disregarding PlayRate
+
+		// Queue a layered move to perform the same anim root motion over the same time span
+		auto AnimRootMotionMove = MakeShared<FLayeredMove_AnimRootMotion>();
+		AnimRootMotionMove->MontageState.Montage = MontageToPlay;
+		AnimRootMotionMove->MontageState.PlayRate = TraversalCheckResult.PlayRate;
+		AnimRootMotionMove->MontageState.StartingMontagePosition = StartingMontagePosition;
+		AnimRootMotionMove->MontageState.CurrentPosition = StartingMontagePosition;
+
+		float RemainingUnscaledMontageSeconds{StartingMontagePosition};
+		if (TraversalCheckResult.PlayRate > 0.f)
+		{
+			// playing forwards, so working towards the end of the montage
+			RemainingUnscaledMontageSeconds = MontageToPlay->GetPlayLength() - StartingMontagePosition;
+		}
+
+		AnimRootMotionMove->DurationMs = (RemainingUnscaledMontageSeconds / FMath::Abs(TraversalCheckResult.PlayRate)) *
+			1000.f;
+
+		MoverComponent->QueueLayeredMove(AnimRootMotionMove);
+	}
+
 
 	bDoingTraversalAction = true;
 	CapsuleComponent->IgnoreComponentWhenMoving(TraversalCheckResult.HitComponent, true);

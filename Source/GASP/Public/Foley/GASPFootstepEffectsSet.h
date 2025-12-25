@@ -14,6 +14,13 @@ struct GASP_API FGASPFootstepSoundSettings
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
 	TSoftObjectPtr<USoundBase> Sound;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
+	TObjectPtr<USoundAttenuation> SoundAttenuation;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
+	TObjectPtr<USoundConcurrency> SoundConcurrency;
+	
 };
 
 USTRUCT(BlueprintType)
