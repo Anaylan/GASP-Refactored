@@ -4,6 +4,8 @@
 #include "MovementSet/Transitions/MovementModeTransition_FromSlide.h"
 #include "Types/MovementTypes.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(MovementMode_Sliding)
+
 UMovementMode_Sliding::UMovementMode_Sliding(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -28,9 +30,13 @@ void UMovementMode_Sliding::GenerateWalkMove_Implementation(FMoverTickStartData&
 {
 	const auto* CharacterInputs = StartState.InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>();
 
-	const float CurrentOffset{
-		static_cast<float>((CurrentFacing.Rotator() - DesiredFacing.Rotator()).GetNormalized().Yaw)
-	};
+	const FVector FwdCurrent = CurrentFacing.GetForwardVector();
+	const FVector FwdDesired = DesiredFacing.GetForwardVector();
+
+	const float CurrentOffset = FMath::RadiansToDegrees(FMath::Atan2(
+		FwdDesired.X * FwdCurrent.Y - FwdDesired.Y * FwdCurrent.X,
+		FwdDesired.X * FwdCurrent.X + FwdDesired.Y * FwdCurrent.Y
+	));
 
 	const float RotRad{
 		FMath::DegreesToRadians(FMath::Clamp(CharacterInputs->RotationOffset, CurrentOffset - 179.f,
@@ -68,11 +74,11 @@ void UMovementMode_Sliding::GenerateWalkMove_Implementation(FMoverTickStartData&
 void UMovementMode_Sliding::Activate()
 {
 	InitialBoost = true;
-
 	FTimerHandle TimerHandle;
 	GetWorld()->GetTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([this]
 	{
 		InitialBoost = false;
 	}), InitialBoostTime, false);
+
 	Super::Activate();
 }

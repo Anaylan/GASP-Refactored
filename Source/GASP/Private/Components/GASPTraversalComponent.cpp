@@ -440,8 +440,10 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 	UpdateWarpTargets();
 
 	auto* MontageToPlay{const_cast<UAnimMontage*>(TraversalCheckResult.ChosenMontage.Get())};
-	AnimInstance->Montage_Play(MontageToPlay, TraversalCheckResult.PlayRate, EMontagePlayReturnType::MontageLength,
-	                           TraversalCheckResult.StartTime);
+	float MontageDuration{
+		AnimInstance->Montage_Play(MontageToPlay, TraversalCheckResult.PlayRate, EMontagePlayReturnType::MontageLength,
+		                           TraversalCheckResult.StartTime)
+	};
 
 	FOnMontageBlendingOutStarted BlendedOutEndedDelegate;
 	BlendedOutEndedDelegate.BindWeakLambda(this, [this](UAnimMontage* Montage, bool bInterrupted)
@@ -462,9 +464,8 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 		}
 	});
 	AnimInstance->Montage_SetEndDelegate(EndedDelegate, MontageToPlay);
-
-
-	if (auto* MontageInstance = AnimInstance->GetActiveInstanceForMontage(MontageToPlay))
+	
+	if (auto* MontageInstance = AnimInstance->GetActiveInstanceForMontage(MontageToPlay); MontageDuration > 0.f)
 	{
 		// Disable the actual animation-driven root motion, in favor of our own layered move
 		MontageInstance->PushDisableRootMotion();
@@ -483,7 +484,7 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 		if (TraversalCheckResult.PlayRate > 0.f)
 		{
 			// playing forwards, so working towards the end of the montage
-			RemainingUnscaledMontageSeconds = MontageToPlay->GetPlayLength() - StartingMontagePosition;
+			RemainingUnscaledMontageSeconds = MontageDuration - StartingMontagePosition;
 		}
 
 		AnimRootMotionMove->DurationMs = (RemainingUnscaledMontageSeconds / FMath::Abs(TraversalCheckResult.PlayRate)) *
@@ -491,7 +492,6 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 
 		MoverComponent->QueueLayeredMove(AnimRootMotionMove);
 	}
-
 
 	bDoingTraversalAction = true;
 	CapsuleComponent->IgnoreComponentWhenMoving(TraversalCheckResult.HitComponent, true);

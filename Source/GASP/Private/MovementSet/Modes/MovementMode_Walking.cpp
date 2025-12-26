@@ -4,6 +4,7 @@
 #include "MovementSet/Transitions/MovementModeTransition_ToSlide.h"
 #include "Types/MovementTypes.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(MovementMode_Walking)
 
 UMovementMode_Walking::UMovementMode_Walking(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -24,10 +25,8 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
                                                             FVector& InOutVelocity)
 {
 	SCOPE_CYCLE_COUNTER(STAT_GenerateWalkMove);
-	
-	const auto* CharacterInputs = StartState.InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>();
 
-	// const float CurrentOffset{static_cast<float>((CurrentFacing.Rotator() - DesiredFacing.Rotator()).GetNormalized().Yaw)};
+	const auto* CharacterInputs = StartState.InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>();
 
 	const FVector FwdCurrent = CurrentFacing.GetForwardVector();
 	const FVector FwdDesired = DesiredFacing.GetForwardVector();

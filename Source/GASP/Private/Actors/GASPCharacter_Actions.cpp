@@ -373,13 +373,10 @@ void AGASPCharacter::StopRagdollingImplementation()
 
 	// Attach the mesh back and restore its default relative location.
 	const auto& ActorTransform{GetActorTransform()};
-
+	
 	GetMesh()->SetWorldLocationAndRotationNoPhysics(
 		ActorTransform.TransformPositionNoScale(Mesh->GetRelativeLocation()),
 		ActorTransform.TransformRotation(Mesh->GetRelativeRotation().Quaternion()).Rotator());
-	GetMesh()->SetWorldLocationAndRotationNoPhysics(ActorTransform.TransformPositionNoScale(FVector::OneVector),
-	                                                ActorTransform.TransformRotation(
-		                                                FQuat::Identity).Rotator());
 
 	GetMesh()->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::KeepWorldTransform);
 

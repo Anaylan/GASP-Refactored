@@ -9,6 +9,7 @@
 #include "BlendStack/BlendStackAnimNodeLibrary.h"
 #include "Interfaces/GASPHeldObjectInterface.h"
 #include "MoverPoseSearchTrajectoryPredictor.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "MovementSet/GASPMoverComponent.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPAnimInstance)
@@ -17,8 +18,8 @@ namespace AnimVars
 {
 	int32 LocomotionSetup{false};
 	FAutoConsoleVariableRef CVarLocomotionStyleStruct(
-		TEXT("gasp.locomotion.style"), LocomotionSetup, TEXT("locomotion style: "
-			"0 - MotionMatching"
+		TEXT("gasp.locomotion.style"), LocomotionSetup, TEXT("locomotion style: \n"
+			"0 - MotionMatching\n"
 			"1 - StateMachine"),
 		ECVF_Default);
 
@@ -40,11 +41,11 @@ namespace AnimVars
 
 EPoseSearchInterruptMode UGASPAnimInstance::GetMatchingInterruptMode() const
 {
-	return MovementMode.Current != MovementMode.LastFrame || (MovementMode.Current == MovementModeTags::Grounded && (
+	return MovementMode.Current != MovementMode.LastFrame || MovementMode.Current == MovementModeTags::Grounded && (
 		       MovementState.Current != MovementState.LastFrame || (Gait.Current != Gait.LastFrame && MovementState.
 			       Current == MovementStateTags::Moving) || StanceMode.Current != StanceMode.LastFrame) || (
 		       MovementDirection.Current != MovementDirection.LastFrame && MovementState.Current ==
-		       MovementStateTags::Moving))
+		       MovementStateTags::Moving)
 		       ? EPoseSearchInterruptMode::InterruptOnDatabaseChange
 		       : EPoseSearchInterruptMode::DoNotInterrupt;
 }
@@ -181,20 +182,19 @@ void UGASPAnimInstance::NativeInitializeAnimation()
 	MMDatabaseLOD = AnimVars::MMDatabaseLOD;
 	FootPlacementEnabled = AnimVars::bFootPlacementEnabled;
 
-	AnimVars::CVarLocomotionStyleStruct->OnChangedDelegate().AddWeakLambda(this, [this](const IConsoleVariable* ICVar)
+	AnimVars::CVarLocomotionStyleStruct->OnChangedDelegate().AddLambda([this](const IConsoleVariable* ICVar)
 	{
 		LocomotionSetup = ICVar ? ICVar->GetInt() : false;
 	});
-	AnimVars::CVarOffsetRootBoneEnabledStruct->OnChangedDelegate().AddWeakLambda(
-		this, [this](const IConsoleVariable* ICVar)
-		{
-			OffsetRootBoneEnabled = ICVar ? ICVar->GetBool() : false;
-		});
-	AnimVars::CVarMMDatabaseLODStruct->OnChangedDelegate().AddWeakLambda(this, [this](const IConsoleVariable* ICVar)
+	AnimVars::CVarOffsetRootBoneEnabledStruct->OnChangedDelegate().AddLambda([this](const IConsoleVariable* ICVar)
+	{
+		OffsetRootBoneEnabled = ICVar ? ICVar->GetBool() : false;
+	});
+	AnimVars::CVarMMDatabaseLODStruct->OnChangedDelegate().AddLambda([this](const IConsoleVariable* ICVar)
 	{
 		MMDatabaseLOD = ICVar ? ICVar->GetInt() : false;
 	});
-	AnimVars::CVarLocomotionStyleStruct->OnChangedDelegate().AddWeakLambda(this, [this](const IConsoleVariable* ICVar)
+	AnimVars::CVarLocomotionStyleStruct->OnChangedDelegate().AddLambda([this](const IConsoleVariable* ICVar)
 	{
 		FootPlacementEnabled = ICVar ? ICVar->GetBool() : false;
 	});
@@ -393,22 +393,22 @@ FVector UGASPAnimInstance::GetSlideSlopeOffset() const
 
 FRotator UGASPAnimInstance::GetSlideSlopeRotation() const
 {
-	const FQuat RootQuat{CharacterInfo.RootTransform.GetRotation()};
-	const FQuat ActorQuat{CharacterInfo.ActorTransform.GetRotation()};
+	const auto RootQuat{CharacterInfo.RootTransform.GetRotation()};
+	const auto ActorQuat{CharacterInfo.ActorTransform.GetRotation()};
 
-	const FVector RightVector{RootQuat.GetRightVector()};
-	const FVector UpVector{ActorQuat.GetUpVector()};
-	const FVector FloorNormal{CharacterInfo.SmoothedGroundNormal};
+	const auto RightVector{RootQuat.GetRightVector()};
+	const auto UpVector{ActorQuat.GetUpVector()};
+	const auto FloorNormal{CharacterInfo.SmoothedGroundNormal};
 
-	const FVector FloorXAxis{FVector::CrossProduct(RightVector, FloorNormal).GetSafeNormal()};
-	const FVector FloorYAxis{FVector::CrossProduct(FloorNormal, FloorXAxis).GetSafeNormal()};
+	const auto FloorXAxis{FVector::CrossProduct(RightVector, FloorNormal).GetSafeNormal()};
+	const auto FloorYAxis{FVector::CrossProduct(FloorNormal, FloorXAxis).GetSafeNormal()};
 
 	const float PitchAngle{
-		static_cast<float>(90.f - FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(FloorXAxis, UpVector))))
+		static_cast<float>(90.f - FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(FloorYAxis, UpVector))))
 	};
 
 	const float RollAngle{
-		static_cast<float>(90.f - FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(FloorYAxis, UpVector))))
+		static_cast<float>(90.f - FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(FloorXAxis, UpVector))))
 	};
 
 	return {-PitchAngle, 0.f, -RollAngle};
@@ -570,10 +570,6 @@ void UGASPAnimInstance::RefreshMotionMatchingMovement(const FAnimUpdateContext& 
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UGASPAnimInstance::MotionMatching"),
 	                            STAT_UGASPAnimInstance_MotionMatching, STATGROUP_GASP)
 	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
-	if (!LocomotionTable)
-	{
-		return;
-	}
 
 	EAnimNodeReferenceConversionResult Result{};
 	const auto Reference{UMotionMatchingAnimNodeLibrary::ConvertToMotionMatchingNode(Node, Result)};
