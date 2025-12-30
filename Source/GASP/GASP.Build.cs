@@ -24,6 +24,7 @@ public class GASP : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"EngineSettings", 
 			"MotionTrajectory", "Chooser", "BlendStack",
 			"AnimationWarpingRuntime",
 			"PhysicsCore",
@@ -36,5 +37,7 @@ public class GASP : ModuleRules
 			{
 				"GameplayDebugger",
 			});
+		
+		SetupIrisSupport(Target);
 	}
 }

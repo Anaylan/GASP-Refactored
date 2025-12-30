@@ -303,8 +303,8 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 		 * to find the floor. If there is a floor, save its location and the back ledges height (using the distance
 		 * between the back ledge and the floor). If no floor was found, invalidate the back floor.*/
 		const FVector EndTraceLocation = NewTraversalCheckResult.BackLedgeLocation +
-			NewTraversalCheckResult.BackLedgeNormal * (CapsuleRadius + 2.0f) - FVector::ZAxisVector * /**/50.f;
-		// (NewTraversalCheckResult.ObstacleHeight - CapsuleHalfHeight + 50.0f);
+			NewTraversalCheckResult.BackLedgeNormal * (CapsuleRadius + 2.0f) - FVector::ZAxisVector * (
+				NewTraversalCheckResult.ObstacleHeight - CapsuleHalfHeight + 50.0f);
 
 		SweepTrace(World, Hit, HasRoomCheckBackLedgeLocation, EndTraceLocation, CapsuleRadius,
 		           CapsuleHalfHeight, ECC_Visibility);
@@ -464,7 +464,7 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 		}
 	});
 	AnimInstance->Montage_SetEndDelegate(EndedDelegate, MontageToPlay);
-	
+
 	if (auto* MontageInstance = AnimInstance->GetActiveInstanceForMontage(MontageToPlay); MontageDuration > 0.f)
 	{
 		// Disable the actual animation-driven root motion, in favor of our own layered move

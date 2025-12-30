@@ -54,7 +54,7 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 	CapsuleComponent->SetCanEverAffectNavigation(false);
 	CapsuleComponent->bDynamicObstacle = true;
 	RootComponent = CapsuleComponent;
-	
+
 	Mesh = CreateOptionalDefaultSubobject<USkeletalMeshComponent>(MeshComponentName);
 	if (Mesh)
 	{
@@ -214,7 +214,6 @@ void AGASPCharacter::PostInitializeComponents()
 		if (auto* UpdatedComponent = CharacterMotionComponent->GetUpdatedComponent())
 		{
 			UpdatedComponent->SetCanEverAffectNavigation(bCanAffectNavigationGeneration);
-
 		}
 	}
 
@@ -223,7 +222,7 @@ void AGASPCharacter::PostInitializeComponents()
 	{
 		TwinStickMode = CVar ? CVar->GetInt() == 1 : false;
 	});
-	
+
 	// MoverInputs_PreSim.OrientationIntent = GetActorForwardVector();
 }
 
@@ -251,7 +250,6 @@ void AGASPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, AllowedStanceMode, Parameters);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, LocomotionAction, Parameters);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, TraversalComponent, Parameters);
-	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, MoverInputs_PostSim, Parameters);
 
 	// Replicate to everyone
 	Parameters.Condition = COND_None;
@@ -672,7 +670,7 @@ FTraversalCheckInputs AGASPCharacter::GetTraversalCheckInputs() const
 			? GetMoverComponent()->GetVelocity().GetSafeNormal()
 			: GetMoverComponent()->GetTargetOrientation().Vector()
 	};
-	
+
 	const auto ActorVelocity{GetActorRotation().UnrotateVector(GetMoverComponent()->GetVelocity())};
 	const float ClampedDistance = FMath::GetMappedRangeValueClamped<float, float>(
 		{0.f, 375.f}, {75.f, 300.f}, ActorVelocity.X);
@@ -750,30 +748,10 @@ void AGASPCharacter::OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAct
 
 void AGASPCharacter::OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName)
 {
-	// TODO: add method or map for convert FName to FGameplayTag?
-	if (NewMovementModeName == DefaultModeNames::Flying)
-	{
-		SetMovementMode(MovementModeTags::Traverse);
-	}
-	else if (NewMovementModeName == DefaultModeNames::Falling)
-	{
-		SetMovementMode(MovementModeTags::InAir);
-	}
-	else if (NewMovementModeName == MovementModeNames::Sliding)
-	{
-		SetMovementMode(MovementModeTags::Slide);
-	}
-	else
-	{
-		SetMovementMode(MovementModeTags::Grounded);
-	}
-
-	// static TMap<FName, FGameplayTag> MovementModeTagMap{
-	// 	{DefaultModeNames::Walking, MovementModeTags::Grounded}, {DefaultModeNames::Falling, MovementModeTags::InAir},
-	// 	{DefaultModeNames::Flying, MovementModeTags::Traverse}, {MovementModeNames::Sliding, MovementModeTags::Slide}
-	// };
-	// const FGameplayTag& NewMovementMode = MovementModeTagMap.FindRef(NewMovementModeName);
-	// SetMovementMode(NewMovementMode.IsValid() ? NewMovementMode : MovementModeTags::Grounded);
+	auto MovementMode = GetMoverComponent()->FindMovementModeByName(NewMovementModeName);
+	SetMovementMode(MovementMode->Implements<UGASPMovementInterface>()
+		                ? IGASPMovementInterface::Execute_GetAssociatedTag(MovementMode)
+		                : MovementModeTags::Traverse);
 
 	if (PreviousMovementModeName == MovementModeNames::Sliding && PlayerInputState.DesiredGait == GaitTags::Sprint)
 	{
@@ -783,8 +761,8 @@ void AGASPCharacter::OnMovementModeChanged(const FName& PreviousMovementModeName
 
 void AGASPCharacter::OnPreSimulateTick(const FMoverTimeStep& TimeStep, const FMoverInputCmdContext& InputCmd)
 {
-	if (auto CharacterInputs = InputCmd.InputCollection.FindMutableDataByType<FGASPMoverInputs>(); CharacterInputs->
-		Stance == StanceTags::Crouching)
+	if (auto CharacterInputs = InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>(); CharacterInputs &&
+		CharacterInputs->Stance == StanceTags::Crouching)
 	{
 		GetMoverComponent()->Crouch();
 	}

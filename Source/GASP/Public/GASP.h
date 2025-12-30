@@ -2,6 +2,8 @@
 
 #include "Modules/ModuleManager.h"
 
+struct FAutoCompleteCommand;
+
 class FGASPModule : public IModuleInterface
 {
 public:

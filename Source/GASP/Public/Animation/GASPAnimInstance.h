@@ -228,13 +228,13 @@ protected:
 
 	// --- Motion Matching & Trajectory Data ---
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PoseSearchData|Choosers")
-	TObjectPtr<UChooserTable> LocomotionTable{nullptr};
+	TObjectPtr<UChooserTable> MotionMatchingTable{nullptr};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PoseSearchData|Choosers")
 	TObjectPtr<UChooserTable> StateMachineTable{nullptr};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PoseSearchData|Trajectory", Transient)
 	FTransformTrajectory Trajectory{};
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PoseSearchData|Trajectory", Transient)
-	FPoseSearchTrajectory_WorldCollisionResults CollisionResults{};
+	FPoseSearchTrajectory_WorldCollisionResults TrajectoryCollision{};
 	UPROPERTY(BlueprintReadOnly, Category = "MotionMatching")
 	FTrajectoryInfo TrajectoryInfo;
 	UPROPERTY(BlueprintReadOnly, Category = "MotionMatching", Transient)

@@ -178,8 +178,9 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 	// capsule's bottom location, so its removal will cause the camera to behave erratically.
 	bool bGrounded;
 	const FVector NewLocation{RagdollTraceGround(bGrounded)};
-	SetActorLocation(NewLocation, false);
-
+	//TODO: this line conflict with mover
+	// SetActorLocation(NewLocation, false);
+	
 	{
 		GetMesh()->SetWorldLocation({
 			NewLocation.X, NewLocation.Y, NewLocation.Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
@@ -370,10 +371,9 @@ void AGASPCharacter::StopRagdollingImplementation()
 	NewActorRotation.Yaw = bRagdollFacingUpward ? PelvisRotation.Yaw - 180.0f : PelvisRotation.Yaw;
 
 	SetActorLocationAndRotation(NewActorLocation, NewActorRotation, false, nullptr, ETeleportType::TeleportPhysics);
-
 	// Attach the mesh back and restore its default relative location.
 	const auto& ActorTransform{GetActorTransform()};
-	
+
 	GetMesh()->SetWorldLocationAndRotationNoPhysics(
 		ActorTransform.TransformPositionNoScale(Mesh->GetRelativeLocation()),
 		ActorTransform.TransformRotation(Mesh->GetRelativeRotation().Quaternion()).Rotator());

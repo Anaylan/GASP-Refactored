@@ -58,7 +58,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components", Replicated)
 	TObjectPtr<class UGASPTraversalComponent> TraversalComponent{};
 
-	UPROPERTY(BlueprintReadOnly, Replicated)
+	UPROPERTY(BlueprintReadOnly)
 	FGASPMoverInputs MoverInputs_PostSim{};
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	FGASPInputState PlayerInputState{};

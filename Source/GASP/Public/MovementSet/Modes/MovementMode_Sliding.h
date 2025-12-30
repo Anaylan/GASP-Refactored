@@ -1,6 +1,8 @@
 #pragma once
 
 #include "MovementMode_Smoothing.h"
+#include "MovementSet/GASPMovementInterface.h"
+#include "Types/TagTypes.h"
 #include "MovementMode_Sliding.generated.h"
 
 namespace MovementModeNames
@@ -12,13 +14,14 @@ namespace MovementModeNames
  * 
  */
 UCLASS(Blueprintable, BlueprintType)
-class GASP_API UMovementMode_Sliding : public UMovementMode_Smoothing
+class GASP_API UMovementMode_Sliding : public UMovementMode_Smoothing, public IGASPMovementInterface
 {
 	GENERATED_BODY()
 
 public:
 	UMovementMode_Sliding(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+	virtual FGameplayTag GetAssociatedTag_Implementation() override { return MovementModeTags::Slide; }
 	virtual void GenerateWalkMove_Implementation(FMoverTickStartData& StartState, float DeltaSeconds,
 	                                             const FVector& DesiredVelocity, const FQuat& DesiredFacing,
 	                                             const FQuat& CurrentFacing, FVector& InOutAngularVelocityDegrees,

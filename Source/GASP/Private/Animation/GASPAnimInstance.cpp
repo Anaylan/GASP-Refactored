@@ -9,7 +9,6 @@
 #include "BlendStack/BlendStackAnimNodeLibrary.h"
 #include "Interfaces/GASPHeldObjectInterface.h"
 #include "MoverPoseSearchTrajectoryPredictor.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "MovementSet/GASPMoverComponent.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPAnimInstance)
@@ -280,8 +279,8 @@ void UGASPAnimInstance::RefreshTrajectory(const float DeltaSeconds)
 
 	const TArray<AActor*> IgnoredActors{};
 	UPoseSearchTrajectoryLibrary::HandleTransformTrajectoryWorldCollisions(
-		CachedCharacter.Get(), this, OutTrajectory, true, .01f,
-		Trajectory, CollisionResults, UEngineTypes::ConvertToTraceType(ECC_Visibility), false,
+		GetWorld(), this, OutTrajectory, true, .01f,
+		Trajectory, TrajectoryCollision, UEngineTypes::ConvertToTraceType(ECC_Visibility), false,
 		IgnoredActors, EDrawDebugTrace::None, true, 150.f);
 
 	UPoseSearchTrajectoryLibrary::GetTransformTrajectoryVelocity(Trajectory, -.3f, -.2f,
@@ -579,7 +578,7 @@ void UGASPAnimInstance::RefreshMotionMatchingMovement(const FAnimUpdateContext& 
 	}
 
 	BlendStack.Databases = UChooserFunctionLibrary::EvaluateChooserMulti(
-		this, LocomotionTable, UPoseSearchDatabase::StaticClass());
+		this, MotionMatchingTable, UPoseSearchDatabase::StaticClass());
 
 	TArray<UPoseSearchDatabase*> Databases;
 	Algo::Transform(BlendStack.Databases, Databases, [](UObject* Object)
@@ -922,7 +921,7 @@ float UGASPAnimInstance::GetDynamicPlayRate(const FAnimNodeReference& Node) cons
 
 	const float SpeedRatio = CharacterInfo.Speed / FMath::Clamp(SpeedCurve, 1.f, UE_MAX_FLT);
 
-	float LerpedAngularVelocity = FMath::Lerp(
+	const float LerpedAngularVelocity = FMath::Lerp(
 		1.f, FMath::GetMappedRangeValueClamped<float, float>({100.f, 400.f}, {1.f, 1.2f},
 		                                                     FMath::Abs(TrajectoryInfo.CurrentAngularVelocity.Z)),
 		FMath::GetMappedRangeValueClamped<float, float>({0.f, .5f}, {0.f, 1.f}, TrajectoryInfo.CirclingTime));
