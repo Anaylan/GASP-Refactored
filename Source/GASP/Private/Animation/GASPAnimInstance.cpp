@@ -579,7 +579,11 @@ void UGASPAnimInstance::RefreshMotionMatchingMovement(const FAnimUpdateContext& 
 
 	BlendStack.Databases = UChooserFunctionLibrary::EvaluateChooserMulti(
 		this, MotionMatchingTable, UPoseSearchDatabase::StaticClass());
-
+	if (BlendStack.Databases.IsEmpty())
+	{
+		return;
+	}
+	
 	TArray<UPoseSearchDatabase*> Databases;
 	Algo::Transform(BlendStack.Databases, Databases, [](UObject* Object)
 	{

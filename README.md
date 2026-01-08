@@ -33,6 +33,15 @@ For more information, see the [Releases](https://github.com/Anaylan/GASP-Refacto
    project's `Plugins` folder.
 2. Recompile your project.
 
+## Important Notices
+
+The following project config (Independent Interpolation) is currently required in Config/DefaultNetworkPrediction.ini to fix jittering:
+
+```
+[/Script/NetworkPrediction.NetworkPredictionSettingsObject]
+Settings=(PreferredTickingPolicy=Independent,ReplicatedManagerClassOverride=None,FixedTickFrameRate=60,bForceEngineFixTickForcePhysics=True,SimulatedProxyNetworkLOD=Interpolated,FixedTickInterpolationBufferedMS=100,IndependentTickInterpolationBufferedMS=100,IndependentTickInterpolationMaxBufferedMS=250,FixedTickInputSendCount=6,IndependentTickInputSendCount=6,MaximumRemoteInputFaultLimit=6)
+```
+
 ## Console Commands
 
 GASP provides several console commands for debugging and configuration. See [CONSOLE_COMMANDS.md](CONSOLE_COMMANDS.md) for a complete list of available commands.
