@@ -20,11 +20,12 @@ public class GASP : ModuleRules
 			"NetworkPrediction",
 			"GameplayTags",
 			"AIModule", "PoseSearch",
+			"RigVM", "ControlRig"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"EngineSettings", 
+			"EngineSettings",
 			"MotionTrajectory", "Chooser", "BlendStack",
 			"AnimationWarpingRuntime",
 			"PhysicsCore",
@@ -37,7 +38,7 @@ public class GASP : ModuleRules
 			{
 				"GameplayDebugger",
 			});
-		
+
 		SetupIrisSupport(Target);
 	}
 }

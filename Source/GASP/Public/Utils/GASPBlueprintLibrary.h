@@ -18,17 +18,10 @@ public:
 	UGASPBlueprintLibrary() = default;
 
 	UFUNCTION(BlueprintPure, Category = "GASP|Utility",
-		meta = (DefaultToSelf = "Character", AutoCreateRefTerm = "CurveName", ReturnDisplayName = "Curve Value"))
-	static float GetAnimationCurveValueFromCharacter(const ACharacter* Character, const FName& CurveName);
-
-	UFUNCTION(BlueprintPure, Category = "GASP|Utility",
 		meta = (AutoCreateRefTerm = "Tag", ReturnDisplayName = "Tag Name"))
 	static FName GetShortTagName(const FGameplayTag& GameplayTag);
 
 	UFUNCTION(BlueprintPure, Category = "GASP|Utility",
 		meta = (AutoCreateRefTerm = "GameplayTag", ReturnDisplayName = "All Child Tags"))
 	static FGameplayTagContainer GetAllChildTags(const FGameplayTag& GameplayTag);
-	
-	UFUNCTION(BlueprintPure, Category = "GASP|Utility")
-	static FVector4 GetDirectionThresholds(EMovementDirection MovementDirection, int32 Style);
 };

@@ -114,6 +114,11 @@ FTransform UGASPAnimInstance::GetHandIKTransform(const FName HandIKSocketName, c
 	return ObjectTransform.GetRelativeTransform(SocketTransform * FTransform(SocketOffset));
 }
 
+FGASPControlRigInput UGASPAnimInstance::GetControlRigInputs() const
+{
+	return {.SpineYawAngle = SpineState.YawAngle};
+}
+
 bool UGASPAnimInstance::IsEnableSteering() const
 {
 	return ((BlendStackInputs.bLoop || BlendStack.bActive) && IsMoving()) || MovementMode.Current ==
@@ -583,7 +588,7 @@ void UGASPAnimInstance::RefreshMotionMatchingMovement(const FAnimUpdateContext& 
 	{
 		return;
 	}
-	
+
 	TArray<UPoseSearchDatabase*> Databases;
 	Algo::Transform(BlendStack.Databases, Databases, [](UObject* Object)
 	{
@@ -695,6 +700,7 @@ void UGASPAnimInstance::RefreshEssentialValues(const float DeltaSeconds)
 	                            STAT_UGASPAnimInstance_RefreshEssentialValues, STATGROUP_GASP)
 	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
 	CharacterInfo.ActorTransform = CachedCharacter->GetActorTransform();
+	CharacterInfo.ViewRotation = CachedCharacter->GetViewRotation().GetNormalized();
 
 	if (!OffsetRootBoneEnabled)
 	{
@@ -767,9 +773,109 @@ bool UGASPAnimInstance::CanOverlayTransition() const
 
 void UGASPAnimInstance::RefreshOverlaySettings(float DeltaTime)
 {
-	// TODO
-	const float ClampedYawAxis = FMath::ClampAngle(GetAOValue().X, -90.f, 90.f) / 6.f;
-	SpineRotation.Yaw = FMath::FInterpTo(SpineRotation.Yaw, ClampedYawAxis, DeltaTime, 60.f);
+	auto ViewRotation{CharacterInfo.ViewRotation};
+	const auto ActorRotation{CharacterInfo.ActorTransform.Rotator()};
+	const auto ViewYawAngle{
+		FMath::UnwindDegrees(UE_REAL_TO_FLOAT(ViewRotation.Yaw - ActorRotation.Yaw))
+	};
+	const float SpineBlendAmount{LayeringState.SpineEnableRotationAmount};
+
+	auto ViewYawSpeed = FMath::Abs(UE_REAL_TO_FLOAT(ViewRotation.Yaw - PreviousCharacterInfo.ViewRotation.Yaw)) /
+		DeltaTime;
+	if (SpineState.bSpineRotationAllowed != (RotationMode.Current == RotationTags::Aim))
+	{
+		SpineState.bSpineRotationAllowed = !SpineState.bSpineRotationAllowed;
+
+		if (SpineState.bSpineRotationAllowed)
+		{
+			// Remap SpineAmount from the [SpineAmount, 1] range to [0, 1] so that lerp between new LastYawAngle
+			// and ViewYawAngle with an alpha equal to SpineAmount still results in CurrentYawAngle.
+			if (FAnimWeight::IsFullWeight(SpineState.SpineAmount))
+			{
+				SpineState.SpineAmountScale = 1.0f;
+				SpineState.SpineAmountBias = 0.0f;
+			}
+			else
+			{
+				SpineState.SpineAmountScale = 1.0f / (1.0f - SpineState.SpineAmount);
+				SpineState.SpineAmountBias = -SpineState.SpineAmount * SpineState.SpineAmountScale;
+			}
+		}
+		else
+		{
+			// Remap SpineAmount from the [0, SpineAmount] range to [0, 1] so that lerp between 0
+			// and LastYawAngle with an alpha equal to SpineAmount still results in CurrentYawAngle.
+			SpineState.SpineAmountScale = !FAnimWeight::IsRelevant(SpineState.SpineAmount)
+				                              ? 1.0f
+				                              : 1.0f / SpineState.SpineAmount;
+
+			SpineState.SpineAmountBias = 0.0f;
+		}
+
+		SpineState.LastYawAngle = SpineState.CurrentYawAngle;
+		SpineState.LastActorYawAngle = UE_REAL_TO_FLOAT(ActorRotation.Yaw);
+	}
+
+	if (SpineState.bSpineRotationAllowed)
+	{
+		if (FAnimWeight::IsFullWeight(SpineState.SpineAmount))
+		{
+			SpineState.SpineAmount = 1.0f;
+			SpineState.CurrentYawAngle = ViewYawAngle;
+		}
+		else
+		{
+			static constexpr auto InterpolationHalfLife{0.1f};
+
+			SpineState.SpineAmount = UGASPMath::DamperExact(SpineState.SpineAmount, 1.0f, DeltaTime,
+			                                                InterpolationHalfLife);
+
+			SpineState.CurrentYawAngle = UGASPMath::LerpAngle(SpineState.LastYawAngle, ViewYawAngle,
+			                                                  SpineState.SpineAmount * SpineState.SpineAmountScale +
+			                                                  SpineState.SpineAmountBias);
+		}
+	}
+	else
+	{
+		if (!FAnimWeight::IsRelevant(SpineState.SpineAmount))
+		{
+			SpineState.SpineAmount = 0.0f;
+			SpineState.CurrentYawAngle = 0.0f;
+		}
+		else
+		{
+			static constexpr auto InterpolationHalfLife{0.7f};
+			static constexpr auto ReferenceViewYawSpeed{40.0f};
+
+			// Decrease the interpolation half life when the camera rotates quickly,
+			// otherwise the spine rotation may lag too much behind the character's rotation.
+
+			const auto InterpolationHalfLifeMultiplier{
+				ViewYawSpeed > ReferenceViewYawSpeed ? ReferenceViewYawSpeed / ViewYawSpeed : 1.0f
+			};
+
+			SpineState.SpineAmount = UGASPMath::DamperExact(SpineState.SpineAmount, 0.0f, DeltaTime,
+			                                                InterpolationHalfLife * InterpolationHalfLifeMultiplier);
+
+			// Offset the spine rotation to keep it unchanged in world space to achieve a smoother spine rotation when aiming stops.
+
+			auto YawAngleOffset{
+				FMath::UnwindDegrees(UE_REAL_TO_FLOAT(SpineState.LastActorYawAngle - ActorRotation.Yaw))
+			};
+
+			// Keep the offset within 30 degrees, otherwise the spine rotation may lag too much behind the character's rotation.
+			static constexpr auto MaxYawAngleOffset{30.0f};
+			YawAngleOffset = FMath::Clamp(YawAngleOffset, -MaxYawAngleOffset, MaxYawAngleOffset);
+
+			SpineState.LastActorYawAngle = FMath::UnwindDegrees(UE_REAL_TO_FLOAT(YawAngleOffset + ActorRotation.Yaw));
+
+			SpineState.CurrentYawAngle = UGASPMath::LerpAngle(0.0f, SpineState.LastYawAngle + YawAngleOffset,
+			                                                  SpineState.SpineAmount * SpineState.SpineAmountScale +
+			                                                  SpineState.SpineAmountBias);
+		}
+	}
+
+	SpineState.YawAngle = UGASPMath::LerpAngle(0.0f, SpineState.CurrentYawAngle, SpineBlendAmount);
 }
 
 void UGASPAnimInstance::RefreshLayering(float DeltaTime)
@@ -778,6 +884,7 @@ void UGASPAnimInstance::RefreshLayering(float DeltaTime)
 	                            STAT_UGASPAnimInstance_RefreshLayering, STATGROUP_GASP)
 	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
 
+	LayeringState.SpineEnableRotationAmount = GetCurveValue(AnimNames.EnableSpineRotationName);
 	LayeringState.SpineAdditiveBlendAmount = GetCurveValue(AnimNames.LayeringSpineAdditiveName);
 	LayeringState.HeadAdditiveBlendAmount = GetCurveValue(AnimNames.LayeringHeadAdditiveName);
 

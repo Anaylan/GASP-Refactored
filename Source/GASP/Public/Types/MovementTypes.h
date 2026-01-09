@@ -31,7 +31,7 @@ struct GASP_API FGaitSettings
 	float InterpolateSpeedForDirection(const FVector& SpeedRange, const FVector& Velocity,
 	                                   const FRotator& ActorRotation) const
 	{
-		const float Dir{FGASPMath::CalculateDirection(Velocity, ActorRotation)};
+		const float Dir{UGASPMath::CalculateDirection(Velocity, ActorRotation)};
 		const float StrafeSpeedMap{IsValid(StrafeCurve) ? StrafeCurve->GetFloatValue(FMath::Abs(Dir)) : 0.f};
 
 		if (StrafeSpeedMap < 1.f)

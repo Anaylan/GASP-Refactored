@@ -94,6 +94,41 @@ struct GASP_API FCharacterInfo
 	FRotator AimingRotation{FRotator::ZeroRotator};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
 	FRotator RootOffsetRotation{FRotator::ZeroRotator};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
+	FRotator ViewRotation;
+};
+
+/**
+ *
+ */
+USTRUCT(BlueprintType)
+struct GASP_API FGASPSpineState
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "")
+	uint8 bSpineRotationAllowed : 1 {false};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = 0, ClampMax = 1))
+	float SpineAmount{0.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = 0, ForceUnits = "x"))
+	float SpineAmountScale{1.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "")
+	float SpineAmountBias{0.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
+	float LastYawAngle{0.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
+	float CurrentYawAngle{0.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
+	float YawAngle{0.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
+	float LastActorYawAngle{0.0f};
 };
 
 USTRUCT(BlueprintType)
@@ -225,6 +260,17 @@ struct GASP_API FAnimUtilityNames
 	FName LayeringArmLeftLocalSpaceName{TEXT("Layering_Arm_L_LS")};
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layering|Names")
 	FName LayeringArmRightLocalSpaceName{TEXT("Layering_Arm_R_LS")};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layering|Names")
+	FName EnableSpineRotationName{TEXT("Enable_SpineRotation")};
+};
+
+USTRUCT(BlueprintType)
+struct GASP_API FGASPControlRigInput
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", Meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
+	float SpineYawAngle{0.0f};
 };
 
 USTRUCT(BlueprintType)
@@ -269,6 +315,8 @@ struct GASP_API FLayeringState
 	float PelvisBlendAmount{0.0f};
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layering|Values", Meta = (ClampMin = 0, ClampMax = 1))
 	float LegsBlendAmount{0.0f};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layering|Values", Meta = (ClampMin = 0, ClampMax = 1))
+	float SpineEnableRotationAmount{0.0f};
 };
 
 USTRUCT(BlueprintType)

@@ -84,6 +84,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Procedural", meta = (BlueprintThreadSafe))
 	FTransform GetHandIKTransform(const FName HandIKSocketName, const FName ObjectIKSocketName,
 	                              const FVector& SocketOffset) const;
+	UFUNCTION(BlueprintPure, Category = "Procedural", meta = (BlueprintThreadSafe))
+	FGASPControlRigInput GetControlRigInputs() const;
 
 	// --- AimOffset & Overlay ---
 	UFUNCTION(BlueprintPure, Category = "AimOffset", meta = (BlueprintThreadSafe))
@@ -244,15 +246,15 @@ protected:
 
 	// --- Procedural / Additive / IK Data ---
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Additive|Layering")
-	FLayeringState LayeringState;
+	FLayeringState LayeringState{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Additive|Poses", Transient)
-	FGASPBlendPoses BlendPoses;
+	FGASPBlendPoses BlendPoses{};
 	UPROPERTY(BlueprintReadOnly, Category = "Additive|Poses", Transient)
-	FBlendStackMachine BlendStackMachine;
+	FBlendStackMachine BlendStackMachine{};
 	UPROPERTY(BlueprintReadOnly, Category = "LocomotionAction|Information", Transient)
-	FRagdollingAnimationState RagdollingState;
+	FRagdollingAnimationState RagdollingState{};
 	UPROPERTY(BlueprintReadOnly, Category = "Additive", Transient)
-	FRotator SpineRotation{FRotator::ZeroRotator};
+	FGASPSpineState SpineState{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeldObject", Transient)
 	FVector RightHandOffset{FVector::ZeroVector};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeldObject", Transient)

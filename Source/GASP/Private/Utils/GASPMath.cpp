@@ -1,6 +1,6 @@
 #include "Utils/GASPMath.h"
 
-
+#include UE_INLINE_GENERATED_CPP_BY_NAME(GASPMath)
 /**
  * Calculates the angle between a vector and a rotation in degrees.
  * Returns the signed angle between -180 and 180 degrees.
@@ -13,7 +13,7 @@
  *         - Negative: Vector points to the left of rotation
  *         - Returns 0 for zero vectors or zero rotations
  */
-float FGASPMath::CalculateDirection(const FVector& Vector, const FRotator& Rotation)
+float UGASPMath::CalculateDirection(const FVector& Vector, const FRotator& Rotation)
 {
 	// Early return if either input is invalid
 	if (Vector.IsNearlyZero() || Rotation.IsNearlyZero())
@@ -51,7 +51,7 @@ float FGASPMath::CalculateDirection(const FVector& Vector, const FRotator& Rotat
 	return FMath::UnwindDegrees(FMath::RadiansToDegrees(FMath::Atan2(RightDot, ForwardDot)));
 }
 
-EMovementDirection FGASPMath::GetMovementDirection(const float Angle, const float ForwardHalfAngle,
+EMovementDirection UGASPMath::GetMovementDirection(const float Angle, const float ForwardHalfAngle,
                                                    const float AngleThreshold)
 {
 	if (Angle >= -ForwardHalfAngle - AngleThreshold && Angle <= ForwardHalfAngle + AngleThreshold)
@@ -72,7 +72,7 @@ EMovementDirection FGASPMath::GetMovementDirection(const float Angle, const floa
 	return EMovementDirection::B;
 }
 
-EMovementDirection FGASPMath::GetMovementDirectionFromThreshold(const FVector4& Thresholds, const float Direction)
+EMovementDirection UGASPMath::GetMovementDirectionFromThreshold(const FVector4& Thresholds, const float Direction)
 {
 	
 	if (FMath::IsWithinInclusive(Direction, Thresholds.X, Thresholds.Y))
@@ -91,7 +91,7 @@ EMovementDirection FGASPMath::GetMovementDirectionFromThreshold(const FVector4& 
 	return EMovementDirection::B;
 }
 
-FVector4 FGASPMath::GetDirectionThresholds(const EMovementDirection MovementDirection, int32 Style)
+FVector4 UGASPMath::GetDirectionThresholds(const EMovementDirection MovementDirection, int32 Style)
 {
 	switch (Style)
 	{
@@ -111,3 +111,4 @@ FVector4 FGASPMath::GetDirectionThresholds(const EMovementDirection MovementDire
 		return FVector4{-180.f, 180.f, -180.f, 180.f};
 	}
 }
+

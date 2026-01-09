@@ -451,8 +451,8 @@ void AGASPCharacter::GetMovementDirectionAddOffset(EMovementDirection& MovementD
 	}
 
 	MovementDirection = MoverInputs_PostSim.Gait != GaitTags::Sprint
-		                    ? FGASPMath::GetMovementDirectionFromThreshold(
-			                    FGASPMath::GetDirectionThresholds(MoverInputs_PostSim.MovementDirection,
+		                    ? UGASPMath::GetMovementDirectionFromThreshold(
+			                    UGASPMath::GetDirectionThresholds(MoverInputs_PostSim.MovementDirection,
 			                                                      AllowedRotationMode == RotationTags::Aim
 				                                                      ? GeneralVars::AimStyle
 				                                                      : GeneralVars::StrafeStyle),
