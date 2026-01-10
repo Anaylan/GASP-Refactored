@@ -60,9 +60,6 @@ struct GASP_API FCharacterInfo
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Configuration")
-	float FlailRate{0.f};
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (ClampMin = 0, ForceUnits = "s"))
 	float Speed{0.f};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -94,41 +91,6 @@ struct GASP_API FCharacterInfo
 	FRotator AimingRotation{FRotator::ZeroRotator};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
 	FRotator RootOffsetRotation{FRotator::ZeroRotator};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Information")
-	FRotator ViewRotation;
-};
-
-/**
- *
- */
-USTRUCT(BlueprintType)
-struct GASP_API FGASPSpineState
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "")
-	uint8 bSpineRotationAllowed : 1 {false};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = 0, ClampMax = 1))
-	float SpineAmount{0.0f};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = 0, ForceUnits = "x"))
-	float SpineAmountScale{1.0f};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "")
-	float SpineAmountBias{0.0f};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
-	float LastYawAngle{0.0f};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
-	float CurrentYawAngle{0.0f};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
-	float YawAngle{0.0f};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
-	float LastActorYawAngle{0.0f};
 };
 
 USTRUCT(BlueprintType)
@@ -182,7 +144,7 @@ struct GASP_API FMotionMatchingInfo
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FName> DatabaseTags{};
 	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
-	float OrientationAlpha{.2f};
+	float TurnInPlaceAlpha{.2f};
 	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
 	float ProceduralTargetTime{.2f};
 	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
@@ -195,6 +157,8 @@ struct GASP_API FMotionMatchingInfo
 	float PlayRate{0.f};
 	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
 	float StrafeWarpAlpha{0.f};
+	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	float StrideWarpAlpha{0.f};
 	UPROPERTY(BlueprintReadOnly)
 	TWeakObjectPtr<class UAnimationAsset> AnimAsset;
 	UPROPERTY(BlueprintReadOnly)
@@ -215,6 +179,10 @@ struct GASP_API FAnimUtilityNames
 	FName EnableWarpingCurveName{TEXT("Enable_Warping")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName EnableStrafeWarpingName{TEXT("Enable_StrafeWarping")};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FName EnableStrideWarpingName{TEXT("Enable_StrideWarping")};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FName EnableTurnInPlaceSteering{TEXT("Enable_TurnInPlaceSteering")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName SteeringTargetTime{TEXT("SteeringTargetTime")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

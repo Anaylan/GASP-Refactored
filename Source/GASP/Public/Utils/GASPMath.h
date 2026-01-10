@@ -40,9 +40,6 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "GASP|Utility", Meta = (ReturnDisplayName = "Angle"))
 	static float LerpAngle(float From, float To, float Ratio);
-
-	// UFUNCTION(BlueprintPure, Category = "ALS|Rotation Utility", Meta = (AutoCreateRefTerm = "From, To", ReturnDisplayName = "Rotation"))
-	// static FRotator LerpRotation(const FRotator& From, const FRotator& To, float Ratio);
 };
 
 template <typename ValueType> requires UE::CFloatingPoint<ValueType>
@@ -59,7 +56,6 @@ constexpr ValueType UGASPMath::RemapAngleForCounterClockwiseRotation(const Value
 inline float UGASPMath::DamperExactAlpha(const float DeltaTime, const float HalfLife)
 {
 	// https://theorangeduck.com/page/spring-roll-call#exactdamper
-
 	return 1.0f - FMath::InvExpApprox(UE_LN2 / (HalfLife + UE_SMALL_NUMBER) * DeltaTime);
 }
 

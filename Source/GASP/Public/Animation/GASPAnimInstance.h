@@ -150,8 +150,6 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
 	void RefreshRagdollValues(const float DeltaSeconds);
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
-	void RefreshOverlaySettings(float DeltaTime);
-	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
 	void RefreshLayering(float DeltaTime);
 	UFUNCTION(BlueprintPure)
 	float GetTotalFacingDelta(TArray<float> Times) const;
@@ -253,8 +251,6 @@ protected:
 	FBlendStackMachine BlendStackMachine{};
 	UPROPERTY(BlueprintReadOnly, Category = "LocomotionAction|Information", Transient)
 	FRagdollingAnimationState RagdollingState{};
-	UPROPERTY(BlueprintReadOnly, Category = "Additive", Transient)
-	FGASPSpineState SpineState{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeldObject", Transient)
 	FVector RightHandOffset{FVector::ZeroVector};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeldObject", Transient)
