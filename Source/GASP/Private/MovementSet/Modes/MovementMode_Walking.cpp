@@ -1,6 +1,8 @@
 #include "MovementSet/Modes/MovementMode_Walking.h"
 #include "MoverComponent.h"
 #include "DefaultMovementSet/Settings/StanceSettings.h"
+#include "MovementSet/Settings/GASPGaitSettings.h"
+#include "MovementSet/Settings/GASPStanceSettings.h"
 #include "MovementSet/Transitions/MovementModeTransition_ToSlide.h"
 #include "Types/MovementTypes.h"
 
@@ -9,6 +11,7 @@
 UMovementMode_Walking::UMovementMode_Walking(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	SharedSettingsClasses.Add(UGASPStanceSettings::StaticClass());
 	SharedSettingsClasses.Add(UStanceSettings::StaticClass());
 	Transitions.Add(CreateDefaultSubobject<UMovementModeTransition_ToSlide>(FName{TEXT("ToSlide")}));
 
@@ -42,25 +45,16 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 	};
 	const auto OverridenDesiredFacing{DesiredFacing * FQuat{FVector::UpVector, RotRad}};
 
-	if (CharacterInputs->Stance == StanceTags::Crouching)
+	auto SharedSettings = GetMoverComponent()->FindSharedSettings<UGASPStanceSettings>();
+	StanceSettings = SharedSettings ? SharedSettings->StanceSettings.FindRef(CharacterInputs->Stance) : StanceSettings;
+	float RunSpeed{375.f}, SprintSpeed{585.f};
+	if (StanceSettings)
 	{
-		MaxSpeedOverride = CrouchSpeed;
+		RunSpeed = StanceSettings->SpeedMap.FindRef(GaitTags::Run);
+		SprintSpeed = StanceSettings->SpeedMap.FindRef(GaitTags::Sprint);
 	}
-	else
-	{
-		if (CharacterInputs->Gait == GaitTags::Walk)
-		{
-			MaxSpeedOverride = WalkSpeed;
-		}
-		else if (CharacterInputs->Gait == GaitTags::Sprint)
-		{
-			MaxSpeedOverride = SprintSpeed;
-		}
-		else
-		{
-			MaxSpeedOverride = RunSpeed;
-		}
-	}
+
+	MaxSpeedOverride = StanceSettings ? StanceSettings->SpeedMap.FindRef(CharacterInputs->Gait) : RunSpeed;
 
 	if (CharacterInputs->Gait == GaitTags::Walk)
 	{

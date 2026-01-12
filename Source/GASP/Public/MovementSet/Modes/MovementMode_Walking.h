@@ -6,7 +6,10 @@
 #include "MovementMode_Walking.generated.h"
 
 DECLARE_STATS_GROUP(TEXT("MovementWalkStats"), STATGROUP_Movement_Walk, STATCAT_Advanced);
+
 DECLARE_CYCLE_STAT(TEXT("GenerateWalkMove Logic"), STAT_GenerateWalkMove, STATGROUP_Movement_Walk);
+
+class UGASPGaitSettings;
 /**
  * 
  */
@@ -32,18 +35,10 @@ public:
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
 	float WalkAcceleration{500.f};
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)",
-		meta=(ForceUnits="CentimetersPerSecond"))
-	float RunSpeed{375.f};
+
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
 	float RunAcceleration{800.f};
-
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)",
-		meta=(ForceUnits="CentimetersPerSecond"))
-	float SprintSpeed{585.f};
 
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
@@ -81,6 +76,11 @@ public:
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
 	float IdleFacingTime{.2f};
+
+	/** Please add a variable description */
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)",
+		meta=(ForceUnits="CentimetersPerSecond"))
+	TObjectPtr<UGASPGaitSettings> StanceSettings{};
 
 private:
 	uint8 bJustLanded : 1{false};
