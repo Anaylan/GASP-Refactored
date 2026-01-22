@@ -264,10 +264,6 @@ bool AGASPCharacter::CanSprint()
 	{
 		return true;
 	}
-	if (AllowedRotationMode == RotationTags::Aim)
-	{
-		return false;
-	}
 
 	const float Dot = FVector::DotProduct(MoverInputs_PostSim.GetMoveInput().GetSafeNormal2D(),
 	                                      MoverInputs_PostSim.OrientationIntent.GetSafeNormal2D());

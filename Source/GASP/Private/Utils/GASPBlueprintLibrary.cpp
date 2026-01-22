@@ -15,3 +15,11 @@ FGameplayTagContainer UGASPBlueprintLibrary::GetAllChildTags(const FGameplayTag&
 {
 	return UGameplayTagsManager::Get().RequestGameplayTagChildren(GameplayTag);
 }
+
+float UGASPBlueprintLibrary::GetAnimationCurveValueFromPawn(const APawn* Pawn, const FName& CurveName)
+{
+	const auto* Mesh{IsValid(Pawn) ? Pawn->FindComponentByClass<USkeletalMeshComponent>() : nullptr};
+	const auto* AnimationInstance{IsValid(Mesh) ? Mesh->GetAnimInstance() : nullptr};
+
+	return IsValid(AnimationInstance) ? AnimationInstance->GetCurveValue(CurveName) : 0.0f;
+}

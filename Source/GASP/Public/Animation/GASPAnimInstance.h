@@ -10,6 +10,7 @@
 #include "PoseSearch/PoseSearchTrajectoryLibrary.h"
 #include "Types/EnumTypes.h"
 #include "Types/StructTypes.h"
+#include "Types/TagTypes.h"
 #include "GASPAnimInstance.generated.h"
 
 class UMoverTrajectoryPredictor;
@@ -219,11 +220,11 @@ protected:
 	FGameplayTagContainer RecentStateContainer{};
 
 	// State Wrappers
-	TStateWrapper<FGameplayTag> Gait{FGameplayTag::EmptyTag};
-	TStateWrapper<FGameplayTag> MovementState{FGameplayTag::EmptyTag};
-	TStateWrapper<FGameplayTag> RotationMode{FGameplayTag::EmptyTag};
-	TStateWrapper<FGameplayTag> MovementMode{FGameplayTag::EmptyTag};
-	TStateWrapper<FGameplayTag> StanceMode{FGameplayTag::EmptyTag};
+	TStateWrapper<FGameplayTag> Gait{GaitTags::Run};
+	TStateWrapper<FGameplayTag> MovementState{MovementStateTags::Idle};
+	TStateWrapper<FGameplayTag> RotationMode{RotationTags::OrientToMovement};
+	TStateWrapper<FGameplayTag> MovementMode{MovementModeTags::Grounded};
+	TStateWrapper<FGameplayTag> StanceMode{StanceTags::Standing};
 	TStateWrapper<EMovementDirection> MovementDirection{EMovementDirection::F};
 
 	// --- Motion Matching & Trajectory Data ---

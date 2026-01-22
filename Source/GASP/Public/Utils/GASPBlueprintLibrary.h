@@ -24,4 +24,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "GASP|Utility",
 		meta = (AutoCreateRefTerm = "GameplayTag", ReturnDisplayName = "All Child Tags"))
 	static FGameplayTagContainer GetAllChildTags(const FGameplayTag& GameplayTag);
+	
+	UFUNCTION(BlueprintPure, Category = "GASP|Utility",
+		meta = (DefaultToSelf = "Pawn", AutoCreateRefTerm = "CurveName", ReturnDisplayName = "Curve Value"))
+	static float GetAnimationCurveValueFromPawn(const APawn* Pawn, const FName& CurveName);
 };

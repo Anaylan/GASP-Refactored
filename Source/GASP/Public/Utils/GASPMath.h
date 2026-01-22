@@ -9,7 +9,7 @@ UCLASS(meta = (BlueprintThreadSafe))
 class GASP_API UGASPMath : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
-	
+
 public:
 	UGASPMath() = default;
 
@@ -27,17 +27,23 @@ public:
 
 	template <typename ValueType> requires UE::CFloatingPoint<ValueType>
 	static constexpr ValueType RemapAngleForCounterClockwiseRotation(ValueType Angle);
-	
+
 	UFUNCTION(BlueprintPure, Category = "GASP|Utility", Meta = (ReturnDisplayName = "Angle"))
 	static float RemapAngleForCounterClockwiseRotation(float Angle);
-	
+
+	UFUNCTION(BlueprintPure, Category = "GASP|Utility")
+	static FTransform GetRelativeTransform(const FTransform& From, const FTransform& To);
+
+	UFUNCTION(BlueprintPure, Category = "GASP|Utility")
+	static FVector ClampVectorLength(const FVector& Value, const float Min, const float Max);
+
 	UFUNCTION(BlueprintPure, Category = "GASP|Math", Meta = (ReturnDisplayName = "Alpha"))
 	static float DamperExactAlpha(float DeltaTime, float HalfLife);
 
 	// HalfLife is the time it takes for the distance to the target to be reduced by half.
 	template <typename ValueType>
 	static ValueType DamperExact(const ValueType& Current, const ValueType& Target, float DeltaTime, float HalfLife);
-	
+
 	UFUNCTION(BlueprintPure, Category = "GASP|Utility", Meta = (ReturnDisplayName = "Angle"))
 	static float LerpAngle(float From, float To, float Ratio);
 };
@@ -77,4 +83,17 @@ inline float UGASPMath::LerpAngle(const float From, const float To, const float 
 	Delta = RemapAngleForCounterClockwiseRotation(Delta);
 
 	return FMath::UnwindDegrees(From + Delta * Ratio);
+}
+
+inline FTransform UGASPMath::GetRelativeTransform(const FTransform& From, const FTransform& To)
+{
+	auto Result{From.GetRelativeTransform(To)};
+	Result.NormalizeRotation();
+	return Result;
+}
+
+inline FVector UGASPMath::ClampVectorLength(const FVector& Value, const float Min, const float Max)
+{
+	const float Length{UE_REAL_TO_FLOAT(Value.Size())};
+	return Value * FMath::Clamp<float>(Length, Min, Max) / Length;
 }
