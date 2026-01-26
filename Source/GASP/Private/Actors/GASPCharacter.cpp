@@ -744,7 +744,7 @@ void AGASPCharacter::OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAct
 
 void AGASPCharacter::OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName)
 {
-	auto MovementMode = GetMoverComponent()->FindMovementModeByName(NewMovementModeName);
+	const auto MovementMode = GetMoverComponent()->FindMovementModeByName(NewMovementModeName);
 	SetMovementMode(MovementMode->Implements<UGASPMovementInterface>()
 		                ? IGASPMovementInterface::Execute_GetAssociatedTag(MovementMode)
 		                : MovementModeTags::Traverse);

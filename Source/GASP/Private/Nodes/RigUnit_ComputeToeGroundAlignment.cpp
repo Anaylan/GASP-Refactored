@@ -13,9 +13,9 @@ FRigUnit_ComputeToeGroundAlignment_Execute()
 	{
 		return;
 	}
-
-	const auto FootPos{Hierarchy->GetGlobalTransform(FootItem).GetTranslation()};
-	const auto ToePos{Hierarchy->GetGlobalTransform(ToeItem).GetTranslation()};
+	
+	const auto FootPos{Hierarchy->GetGlobalTransform(CachedFootItem).GetTranslation()};
+	const auto ToePos{Hierarchy->GetGlobalTransform(CachedToeItem).GetTranslation()};
 	const auto FootToToeCurrent{ToePos - FootPos};
 
 	const auto InitialFoot{Hierarchy->GetInitialGlobalTransform(CachedFootItem)};

@@ -128,8 +128,8 @@ bool UGASPAnimInstance::IsEnableSteering() const
 bool UGASPAnimInstance::JustTeleported() const
 {
 	return FVector::DistSquared(PreviousCharacterInfo.ActorTransform.GetTranslation(),
-	                            CharacterInfo.ActorTransform.GetTranslation()) > AnimConfiguration.TeleportThreshold *
-		AnimConfiguration.TeleportThreshold;
+	                            CharacterInfo.ActorTransform.GetTranslation()) > FMath::Square(
+		AnimConfiguration.TeleportThreshold);
 }
 
 bool UGASPAnimInstance::AllowFootPinning() const
@@ -160,7 +160,7 @@ void UGASPAnimInstance::NativeBeginPlay()
 
 	CachedCharacter->OverlayModeChanged.AddUniqueDynamic(this, &ThisClass::OnOverlayModeChanged);
 	CachedCharacter->PoseModeChanged.AddUniqueDynamic(this, &ThisClass::OnPoseModeChanged);
-	
+
 	StateContainer = PreviousStateContainer = RecentStateContainer = CachedCharacter->StateContainer;
 }
 
@@ -220,7 +220,7 @@ void UGASPAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 	}
 
 	const auto& InputState{CachedCharacter->GetMoverState()};
-	const FGameplayTag NewGait = InputState.Gait == GaitTags::Sprint && IsCircling() ? GaitTags::Run : InputState.Gait;
+	const auto NewGait{InputState.Gait == GaitTags::Sprint && IsCircling() ? GaitTags::Run : InputState.Gait};
 
 	Gait.Update(NewGait, DeltaSeconds, .1f);
 	RotationMode.Update(InputState.RotationMode, DeltaSeconds, .1f);
@@ -229,8 +229,8 @@ void UGASPAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 	StanceMode.Update(InputState.Stance, DeltaSeconds, .1f);
 	MovementDirection.Update(InputState.MovementDirection, DeltaSeconds, .1f);
 
-	RefreshStateContainer();
 	RefreshEssentialValues(DeltaSeconds);
+	RefreshStateContainer();
 	RefreshTrajectory(DeltaSeconds);
 	RefreshLayering(DeltaSeconds);
 
@@ -254,9 +254,10 @@ void UGASPAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	}
 }
 
-void UGASPAnimInstance::NativePostEvaluateAnimation()
+void UGASPAnimInstance::NativePostUpdateAnimation()
 {
-	Super::NativePostEvaluateAnimation();
+	PreviousCharacterInfo = CharacterInfo;
+	PreviousLocomotionAction = LocomotionAction;
 
 	if (ForceFootPlacementReset)
 	{
@@ -264,12 +265,9 @@ void UGASPAnimInstance::NativePostEvaluateAnimation()
 	}
 }
 
-void UGASPAnimInstance::PreUpdateAnimation(float DeltaSeconds)
+FAnimInstanceProxy* UGASPAnimInstance::CreateAnimInstanceProxy()
 {
-	PreviousCharacterInfo = CharacterInfo;
-	PreviousLocomotionAction = LocomotionAction;
-
-	Super::PreUpdateAnimation(DeltaSeconds);
+	return new FGASPAnimInstanceProxy{this};
 }
 
 void UGASPAnimInstance::RefreshTrajectory(const float DeltaSeconds)
@@ -699,6 +697,7 @@ void UGASPAnimInstance::RefreshEssentialValues(const float DeltaSeconds)
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UGASPAnimInstance::RefreshEssentialValues"),
 	                            STAT_UGASPAnimInstance_RefreshEssentialValues, STATGROUP_GASP)
 	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
+	
 	CharacterInfo.ActorTransform = CachedCharacter->GetActorTransform();
 
 	if (!OffsetRootBoneEnabled)
@@ -706,7 +705,7 @@ void UGASPAnimInstance::RefreshEssentialValues(const float DeltaSeconds)
 		CharacterInfo.RootTransform = CharacterInfo.ActorTransform;
 	}
 
-	const auto InputState = CachedCharacter->GetMoverState();
+	const auto InputState{CachedCharacter->GetMoverState()};
 	CharacterInfo.Acceleration = CachedMovement->GetMovementIntent();
 	CharacterInfo.FloorLocation = InputState.FloorLocation;
 	CharacterInfo.FloorNormal = InputState.FloorNormal;

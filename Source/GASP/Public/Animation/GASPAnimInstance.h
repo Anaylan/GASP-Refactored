@@ -33,11 +33,12 @@ public:
 	// --- UAnimInstance Interface ---
 	virtual void NativeBeginPlay() override;
 	virtual void NativeInitializeAnimation() override;
-	virtual void PreUpdateAnimation(float DeltaSeconds) override;
 	virtual void NativeThreadSafeUpdateAnimation(float DeltaSeconds) override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
-	virtual void NativePostEvaluateAnimation() override;
+	virtual void NativePostUpdateAnimation();
 
+	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
+	
 	// Creates a snapshot for the final ragdoll pose
 	FPoseSnapshot& SnapshotFinalRagdollPose();
 

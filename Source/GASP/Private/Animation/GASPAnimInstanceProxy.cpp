@@ -1,5 +1,5 @@
 #include "Animation/GASPAnimInstanceProxy.h"
-#include "Actors/GASPCharacter.h"
+#include "Animation/GASPAnimInstance.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPAnimInstanceProxy)
 
@@ -8,14 +8,13 @@ FGASPAnimInstanceProxy::FGASPAnimInstanceProxy(UAnimInstance* InAnimInstance)
 {
 }
 
-void FGASPAnimInstanceProxy::InitializeObjects(UAnimInstance* InAnimInstance)
+void FGASPAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 {
-	FAnimInstanceProxy::InitializeObjects(InAnimInstance);
+	FAnimInstanceProxy::PostUpdate(InAnimInstance);
 
-	CharacterOwner = Cast<AGASPCharacter>(InAnimInstance->TryGetPawnOwner());
-}
-
-void FGASPAnimInstanceProxy::Update(float DeltaSeconds)
-{
-	FAnimInstanceProxy::Update(DeltaSeconds);
+	auto* AnimInstance{Cast<UGASPAnimInstance>(InAnimInstance)};
+	if (IsValid(AnimInstance))
+	{
+		AnimInstance->NativePostUpdateAnimation();
+	}
 }

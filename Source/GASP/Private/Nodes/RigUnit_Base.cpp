@@ -173,11 +173,11 @@ FRigUnit_AlphaLinearInterp_Execute()
 
 	if (Speed > 0.f || FMath::IsNearlyEqual(Value, Target, .001f))
 	{
-		Result = Target;
+		Result = Value + FMath::Clamp(ExecuteContext.GetDeltaTime() * Speed, 0.f, 1.f) * (Target - Value);
 		return;
 	}
 
-	Result = Value + FMath::Clamp(ExecuteContext.GetDeltaTime() * Speed, 0.f, 1.f) * (Target - Value);
+	Result = Target;
 }
 
 FRigUnit_ClampPinYaw_Execute()
@@ -208,6 +208,6 @@ FRigUnit_ClampPinDistance_Execute()
 	auto Delta{ExecuteContext.ToVMSpace(UpdatedPinTransform.GetTranslation()) - Translation};
 
 	auto ClampedDelta{UGASPMath::ClampVectorLength({Delta.X, Delta.Y, 0.f}, 0.f, MaxFootPinDistance)};
-	
+
 	World = ExecuteContext.ToWorldSpace(ClampedDelta + Translation);
 }

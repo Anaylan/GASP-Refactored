@@ -17,13 +17,5 @@ struct FGASPAnimInstanceProxy : public FAnimInstanceProxy
 	explicit FGASPAnimInstanceProxy(UAnimInstance* InAnimInstance);
 
 protected:
-	virtual void InitializeObjects(UAnimInstance* InAnimInstance) override;
-	virtual void Update(float DeltaSeconds) override;
-
-	UPROPERTY(Transient)
-	TWeakObjectPtr<AGASPCharacter> CharacterOwner;
-public:
-	
-	FORCEINLINE AGASPCharacter* GetCharacterOwner() const { return CharacterOwner.Get(); }
-
+	virtual void PostUpdate(UAnimInstance* InAnimInstance) const override;
 };
