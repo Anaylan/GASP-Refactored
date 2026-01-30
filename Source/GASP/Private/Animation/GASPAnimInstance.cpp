@@ -15,7 +15,7 @@
 
 namespace AnimVars
 {
-	int32 LocomotionSetup{false};
+	int32 LocomotionSetup{1};
 	FAutoConsoleVariableRef CVarLocomotionStyleStruct(
 		TEXT("gasp.locomotion.style"), LocomotionSetup, TEXT("locomotion style: \n"
 			"0 - MotionMatching\n"

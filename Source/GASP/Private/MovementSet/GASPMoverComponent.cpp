@@ -31,3 +31,34 @@ void UGASPMoverComponent::InitCollisionParams(FCollisionQueryParams& OutParams,
 		PrimitiveComponent->InitSweepCollisionParams(OutParams, OutResponseParam);
 	}
 }
+
+void UGASPMoverComponent::OnMoverPreSimulationTick(const FMoverTimeStep& TimeStep,
+                                                   const FMoverInputCmdContext& InputCmd)
+{
+	const auto* LastInput{GetLastInputCmd().InputCollection.FindDataByType<FGASPMoverInputs>()};
+
+	Super::OnMoverPreSimulationTick(TimeStep, InputCmd);
+
+	const auto* CharacterInputs{InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>()};
+
+	if (CharacterInputs && CharacterInputs->Stance == StanceTags::Crouching)
+	{
+		Crouch();
+	}
+	else
+	{
+		UnCrouch();
+	}
+
+	if (LastInput)
+	{
+		if (LastInput->Gait != CharacterInputs->Gait)
+		{
+			GaitChanged.Broadcast(LastInput->Gait, CharacterInputs->Gait);
+		}
+		if (LastInput->RotationMode != CharacterInputs->RotationMode)
+		{
+			RotationModeChanged.Broadcast(LastInput->RotationMode, CharacterInputs->RotationMode);
+		}
+	}
+}

@@ -20,8 +20,7 @@ public:
 	UFUNCTION(BlueprintPure, Category="GASP|Gait")
 	UCurveVector* GetMovementCurve() const;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly,
-		meta = (Description = "X = Forward Speed, Y = Backwards Speed"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TMap<FGameplayTag, float> SpeedMap{
 		{GaitTags::Walk, 165.f},
 		{GaitTags::Run, 375.f},

@@ -135,7 +135,7 @@ void AGASPCharacterExample::RagdollAction(bool bPressed)
 
 void AGASPCharacterExample::StrafeAction(bool bPressed)
 {
-	if (GetRotationMode() != RotationTags::Strafe)
+	if (MoverInputs_PostSim.RotationMode != RotationTags::Strafe)
 	{
 		PlayerInputState.DesiredRotationMode = RotationTags::Strafe;
 	}

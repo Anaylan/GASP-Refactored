@@ -26,14 +26,10 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 	/** The CapsuleComponent being used for movement collision (by CharacterMovement). Always treated as being vertically aligned in simple collision check functions. */
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	TObjectPtr<class UCapsuleComponent> CapsuleComponent;
-
-	UPROPERTY(BlueprintGetter=GetGait, ReplicatedUsing=OnRep_AllowedGait, Transient)
-	FGameplayTag AllowedGait{FGameplayTag::EmptyTag};
-	UPROPERTY(BlueprintGetter=GetRotationMode, ReplicatedUsing=OnRep_AllowedRotationMode, Transient)
-	FGameplayTag AllowedRotationMode{FGameplayTag::EmptyTag};
+	
 	UPROPERTY(BlueprintGetter=GetMovementMode, ReplicatedUsing=OnRep_AllowedMovementMode, Transient)
 	FGameplayTag AllowedMovementMode{MovementModeTags::Grounded};
-	UPROPERTY(BlueprintGetter=GetStanceMode, ReplicatedUsing=OnRep_AllowedStanceMode, Transient)
+	UPROPERTY(BlueprintGetter=GetStanceMode, Transient)
 	FGameplayTag AllowedStanceMode{StanceTags::Standing};
 	UPROPERTY(BlueprintGetter=GetOverlayMode, ReplicatedUsing=OnRep_OverlayMode, Transient)
 	FGameplayTag OverlayMode{OverlayModeTags::Default};
@@ -60,8 +56,8 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly)
 	FGASPMoverInputs MoverInputs_PostSim{};
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	FGASPInputState PlayerInputState{};
+	// UPROPERTY(BlueprintReadOnly)
+	// FGASPMoverInputs MoverInputs_PreSim{};
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -72,8 +68,6 @@ protected:
 
 	UFUNCTION()
 	virtual void OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName);
-	UFUNCTION()
-	virtual void OnPreSimulateTick(const FMoverTimeStep& TimeStep, const FMoverInputCmdContext& InputCmd);
 	UFUNCTION()
 	virtual void OnStanceChanged(EStanceMode OldStance, EStanceMode NewStance);
 
@@ -128,10 +122,12 @@ protected:
 	virtual void RefreshFloorValues();
 	virtual void RefreshControlRotationRate(const float DeltaTime);
 	virtual void RefreshTwinStickMode();
-	virtual void RefreshRotationMode();
 	virtual void RefreshMoverState();
 
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	FGASPInputState PlayerInputState{};
+	
 	UPROPERTY(BlueprintReadOnly, Category=Character)
 	uint8 bJustPressedJump : 1;
 
@@ -147,6 +143,11 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual FRotator GetAimingRotation();
 
+	UFUNCTION(BlueprintPure)
+	virtual FGameplayTag GetAllowedRotationMode();
+	UFUNCTION(BlueprintPure)
+	virtual FGameplayTag GetAllowedGait();
+	
 	/** Returns Mesh subobject **/
 	inline class USkeletalMeshComponent* GetMesh() const { return Mesh; }
 
@@ -181,7 +182,6 @@ protected:
 	TObjectPtr<UNavMoverComponent> NavMoverComponent;
 
 public:
-	void RefreshGait();
 
 	UFUNCTION(BlueprintCallable, Category="Traversal")
 	FTraversalResult TryTraversalAction() const;
@@ -224,12 +224,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetMovementMode(const FGameplayTag NewMovementMode, const bool bForce = false);
 	UFUNCTION(BlueprintCallable)
-	void SetGait(const FGameplayTag NewGait, const bool bForce = false);
-	UFUNCTION(BlueprintCallable)
-	void SetRotationMode(const FGameplayTag NewRotationMode, const bool bForce = false);
-	UFUNCTION(BlueprintCallable)
 	void SetStanceMode(const FGameplayTag NewStanceMode, const bool bForce = false);
-
+	
 	UFUNCTION(BlueprintCallable)
 	void SetOverlayMode(const FGameplayTag NewOverlayMode, const bool bForce = false);
 	UFUNCTION(Server, Reliable)
@@ -283,24 +279,12 @@ public:
 	}
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTag GetGait() const
-	{
-		return AllowedGait;
-	}
-
-	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTag GetRotationMode() const
-	{
-		return AllowedRotationMode;
-	}
-
-	UFUNCTION(BlueprintPure)
 	FORCEINLINE FGameplayTag GetStanceMode() const
 	{
 		return AllowedStanceMode;
 	}
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintReadOnly, Replicated)
 	FGameplayTagContainer StateContainer;
 
 public:
@@ -328,13 +312,7 @@ private:
 	UFUNCTION()
 	virtual void OnRep_PoseMode(const FGameplayTag& OldPoseMode);
 	UFUNCTION()
-	virtual void OnRep_AllowedGait(const FGameplayTag& OldGait);
-	UFUNCTION()
-	virtual void OnRep_AllowedStanceMode(const FGameplayTag& OldStanceMode);
-	UFUNCTION()
 	virtual void OnRep_AllowedMovementMode(const FGameplayTag& OldMovementMode);
-	UFUNCTION()
-	virtual void OnRep_AllowedRotationMode(const FGameplayTag& OldRotationMode);
 	UFUNCTION()
 	virtual void OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAction);
 

@@ -46,10 +46,26 @@ struct FGASPMoverInputs : public FCharacterDefaultInputs
 	{
 	}
 
+	bool operator==(const FGASPMoverInputs& Other) const
+	{
+		return Super::operator==(Other)
+			&& Gait == Other.Gait
+			&& RotationMode == Other.RotationMode
+			&& Stance == Other.Stance
+			&& ControlRotationRate == Other.ControlRotationRate
+			&& RotationOffset == Other.RotationOffset
+			&& MovementDirection == Other.MovementDirection
+			&& FloorLocation == Other.FloorLocation
+			&& FloorNormal == Other.FloorNormal
+			&& AimingRotation == Other.AimingRotation;
+	}
+
 	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override;
 	virtual UScriptStruct* GetScriptStruct() const override { return StaticStruct(); }
 	virtual void ToString(FAnsiStringBuilderBase& Out) const override;
-
+	virtual bool ShouldReconcile(const FMoverDataStructBase& AuthorityState) const override;
+	virtual void Interpolate(const FMoverDataStructBase& From, const FMoverDataStructBase& To, float Pct) override;
+	
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		Super::AddReferencedObjects(Collector);
@@ -59,6 +75,16 @@ struct FGASPMoverInputs : public FCharacterDefaultInputs
 	{
 		return new FGASPMoverInputs(*this);
 	}
+};
+
+template <>
+struct TStructOpsTypeTraits<FGASPMoverInputs> : public TStructOpsTypeTraitsBase2<FGASPMoverInputs>
+{
+	enum
+	{
+		WithNetSerializer = true,
+		WithCopy = true
+	};
 };
 
 USTRUCT(BlueprintType)
