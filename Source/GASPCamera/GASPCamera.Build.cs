@@ -10,7 +10,7 @@ public class GASPCamera : ModuleRules
             new string[]
             {
                 "Core",
-                "GameplayTags"
+                "GameplayTags", "GameplayCameras"
             }
         );
 
@@ -20,7 +20,7 @@ public class GASPCamera : ModuleRules
                 "CoreUObject",
                 "Engine",
                 "Slate",
-                "SlateCore"
+                "SlateCore", "Chooser"
             }
         );
     }

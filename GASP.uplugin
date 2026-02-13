@@ -11,7 +11,7 @@
   "MarketplaceURL": "https://www.fab.com/listings/880e319a-a59e-4ed2-b268-b32dac7fa016",
   "SupportURL": "https://github.com/Anaylan/GASP-Refactored/discussions",
   "CanContainContent": true,
-  "IsBetaVersion": false,
+  "IsBetaVersion": true,
   "EnabledByDefault": true,
   "IsExperimentalVersion": false,
   "Installed": false,

@@ -3,6 +3,7 @@
 #include "GameplayTagContainer.h"
 #include "Types/EnumTypes.h"
 #include "MoverSimulationTypes.h"
+#include "StructUtils/InstancedStruct.h"
 #include "Types/MovementTypes.h"
 #include "Types/TagTypes.h"
 #include "Types/StructTypes.h"
@@ -56,8 +57,6 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly)
 	FGASPMoverInputs MoverInputs_PostSim{};
-	// UPROPERTY(BlueprintReadOnly)
-	// FGASPMoverInputs MoverInputs_PreSim{};
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -125,8 +124,8 @@ protected:
 	virtual void RefreshMoverState();
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	FGASPInputState PlayerInputState{};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input", meta = (BaseStruct = "/Script/GASP.GASPInputState"))
+	FInstancedStruct PlayerInputState{FGASPInputState::StaticStruct()};
 	
 	UPROPERTY(BlueprintReadOnly, Category=Character)
 	uint8 bJustPressedJump : 1;
@@ -193,10 +192,6 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnStateChanged PoseModeChanged;
 	UPROPERTY(BlueprintAssignable)
-	FOnStateChanged GaitChanged;
-	UPROPERTY(BlueprintAssignable)
-	FOnStateChanged RotationModeChanged;
-	UPROPERTY(BlueprintAssignable)
 	FOnStateChanged StanceModeChanged;
 	UPROPERTY(BlueprintAssignable)
 	FOnStateChanged LocomotionActionChanged;
@@ -216,8 +211,7 @@ public:
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
-
+	
 	/****************************
 	 *		Movement States		*
 	 ****************************/

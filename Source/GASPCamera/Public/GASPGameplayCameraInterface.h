@@ -1,30 +1,26 @@
 ﻿#pragma once
 
 #include "GameplayTagContainer.h"
+#include "NativeGameplayTags.h"
 #include "GASPGameplayCameraInterface.generated.h"
 
-UENUM(BlueprintType, meta = (ScriptName = "ECameraMode"))
-enum class ECameraMode : uint8
-{
-	FreeCam,
-	Strafe,
-	Aim
-};
+class UCameraRigAsset;
 
-UENUM(BlueprintType, meta = (ScriptName = "ECameraStyle"))
-enum class ECameraStyle : uint8
+namespace CameraStyleTags
 {
-	Far,
-	Balanced,
-	Close
-};
+	GASPCAMERA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Close);
+	GASPCAMERA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Medium);
+	GASPCAMERA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Far);
+	GASPCAMERA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Debug);
+}
 
-UENUM(BlueprintType, meta = (ScriptName = "EViewMode"))
-enum class EViewMode : uint8
+namespace CameraModeTags
 {
-	FirstPerson,
-	ThirdPerson
-};
+	GASPCAMERA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(FreeCam);
+	GASPCAMERA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Strafe);
+	GASPCAMERA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Aim);
+	GASPCAMERA_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TwinStick);
+}
 
 USTRUCT(BlueprintType)
 struct FCameraProperties
@@ -32,16 +28,7 @@ struct FCameraProperties
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	ECameraStyle CameraStyle{0};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	ECameraMode CameraMode{0};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag StanceMode{FGameplayTag::EmptyTag};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EViewMode ViewMode{0};
+	FGameplayTagContainer GameplayTags{};
 };
 
 /**
@@ -70,4 +57,7 @@ class GASPCAMERA_API UGASPGameplayCameraBlueprintFunctionLibrary : public UBluep
 public:
 	UFUNCTION(BlueprintCallable, Category="Camera|Helpers")
 	static FCameraProperties GetCameraProperties(AActor* CameraActor);
+
+	UFUNCTION(BlueprintCallable, Category="Camera|Helpers")
+	static UCameraRigAsset* GetCameraRigAsset(FCameraProperties CameraProperties, class UChooserTable* ChooserTable);
 };

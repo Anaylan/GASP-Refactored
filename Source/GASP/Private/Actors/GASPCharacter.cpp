@@ -141,8 +141,8 @@ void AGASPCharacter::SetMovementMode(const FGameplayTag NewMovementMode, const b
 	if (NewMovementMode != AllowedMovementMode || bForce)
 	{
 		StateContainer.RemoveTag(AllowedMovementMode);
-		StateContainer.AddTag(NewMovementMode);
-		
+		StateContainer.AddLeafTag(NewMovementMode);
+
 		const auto OldMovementMode{AllowedMovementMode};
 		AllowedMovementMode = NewMovementMode;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, AllowedMovementMode, this);
@@ -314,15 +314,13 @@ void AGASPCharacter::ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmd
 	CharacterInputs.SetMoveInput(EMoveInputType::DirectionalIntent, GetMovementInputVector());
 	CharacterInputs.RotationMode = GetAllowedRotationMode();
 	CharacterInputs.Gait = GetAllowedGait();
-	CharacterInputs.Stance = PlayerInputState.DesiredStance;
+	CharacterInputs.Stance = PlayerInputState.Get<FGASPInputState>().DesiredStance;
 	CharacterInputs.ControlRotation = GetAimingRotation();
 	CharacterInputs.bIsJumpJustPressed = bJustPressedJump;
 	CharacterInputs.OrientationIntent = GetOrientationIntent();
 	CharacterInputs.ControlRotationRate = ControlRotationRate;
 
 	GetMovementDirectionAddOffset(CharacterInputs.MovementDirection, CharacterInputs.RotationOffset);
-
-	// CharacterInputs = MoverInputs_PostSim;
 }
 
 void AGASPCharacter::GetMovementDirectionAddOffset(EMovementDirection& MovementDirection, float& RotationOffset)
@@ -504,7 +502,7 @@ FGameplayTag AGASPCharacter::GetAllowedRotationMode()
 	{
 		if (!TwinStickAimDirection.IsZero())
 		{
-			if (PlayerInputState.DesiredRotationMode == RotationTags::Aim)
+			if (PlayerInputState.Get<FGASPInputState>().DesiredRotationMode == RotationTags::Aim)
 			{
 				return RotationTags::Aim;
 			}
@@ -512,12 +510,12 @@ FGameplayTag AGASPCharacter::GetAllowedRotationMode()
 		}
 		return RotationTags::OrientToMovement;
 	}
-	return PlayerInputState.DesiredRotationMode;
+	return PlayerInputState.Get<FGASPInputState>().DesiredRotationMode;
 }
 
 FGameplayTag AGASPCharacter::GetAllowedGait()
 {
-	const auto& DesiredGait{PlayerInputState.DesiredGait};
+	const auto& DesiredGait{PlayerInputState.Get<FGASPInputState>().DesiredGait};
 
 	if (DesiredGait == GaitTags::Sprint && CanSprint())
 	{
@@ -583,9 +581,10 @@ FTraversalCheckInputs AGASPCharacter::GetTraversalCheckInputs() const
 {
 	if (AllowedMovementMode == MovementModeTags::InAir)
 	{
-		const auto Inputs{GetMoverState()};
 		return {
-			!Inputs.GetMoveInput().IsZero() ? Inputs.GetMoveInput().GetSafeNormal() : GetActorForwardVector(),
+			!MoverInputs_PostSim.GetMoveInput().IsZero()
+				? MoverInputs_PostSim.GetMoveInput().GetSafeNormal()
+				: GetActorForwardVector(),
 			75.f, FVector::ZeroVector, FVector::UpVector * 50.f, 30.f, 86.f
 		};
 	}
@@ -669,9 +668,10 @@ void AGASPCharacter::OnMovementModeChanged(const FName& PreviousMovementModeName
 		                ? IGASPMovementInterface::Execute_GetAssociatedTag(MovementMode)
 		                : MovementModeTags::Traverse);
 
-	if (PreviousMovementModeName == MovementModeNames::Sliding && PlayerInputState.DesiredGait == GaitTags::Sprint)
+	if (PreviousMovementModeName == MovementModeNames::Sliding && PlayerInputState.Get<FGASPInputState>().DesiredGait ==
+		GaitTags::Sprint)
 	{
-		PlayerInputState.DesiredStance = StanceTags::Standing;
+		PlayerInputState.GetMutablePtr<FGASPInputState>()->DesiredStance = StanceTags::Standing;
 	}
 }
 
@@ -691,6 +691,9 @@ void AGASPCharacter::SetStanceMode(const FGameplayTag NewStanceMode, const bool 
 {
 	if (NewStanceMode != AllowedStanceMode || bForce)
 	{
+		StateContainer.RemoveTag(AllowedStanceMode);
+		StateContainer.AddLeafTag(NewStanceMode);
+
 		const auto OldStanceMode{AllowedStanceMode};
 		AllowedStanceMode = NewStanceMode;
 		StanceModeChanged.Broadcast(OldStanceMode, AllowedStanceMode);

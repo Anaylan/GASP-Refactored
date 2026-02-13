@@ -11,7 +11,6 @@ AGASPCharacterExample::AGASPCharacterExample(const FObjectInitializer& ObjectIni
 	if (GetMesh())
 	{
 		GameplayCamera->SetupAttachment(GetMesh(), FName{TEXT("root")});
-		GameplayCamera->SetRelativeLocation(FVector::ZAxisVector * 100.f);
 	}
 }
 
@@ -37,29 +36,31 @@ void AGASPCharacterExample::OnRep_Controller()
 
 void AGASPCharacterExample::SprintAction(bool bPressed)
 {
+	auto* InputState{PlayerInputState.GetMutablePtr<FGASPInputState>()};
 	if (bPressed)
 	{
-		PlayerInputState.DesiredGait = GaitTags::Sprint;
+		InputState->DesiredGait = GaitTags::Sprint;
 		if (GetStanceMode() == StanceTags::Standing)
 		{
-			PlayerInputState.DesiredStance = StanceTags::Standing;
+			InputState->DesiredStance = StanceTags::Standing;
 		}
 		return;
 	}
-	PlayerInputState.DesiredGait = GaitTags::Run;
+	InputState->DesiredGait = GaitTags::Run;
 }
 
 void AGASPCharacterExample::WalkAction(bool bPressed)
 {
-	if (PlayerInputState.DesiredGait != GaitTags::Sprint)
+	auto* InputState{PlayerInputState.GetMutablePtr<FGASPInputState>()};
+	if (InputState->DesiredGait != GaitTags::Sprint)
 	{
-		if (PlayerInputState.DesiredGait != GaitTags::Walk)
+		if (InputState->DesiredGait != GaitTags::Walk)
 		{
-			PlayerInputState.DesiredGait = GaitTags::Walk;
+			InputState->DesiredGait = GaitTags::Walk;
 		}
 		else
 		{
-			PlayerInputState.DesiredGait = GaitTags::Run;
+			InputState->DesiredGait = GaitTags::Run;
 		}
 	}
 }
@@ -68,13 +69,14 @@ void AGASPCharacterExample::CrouchAction(bool bPressed)
 {
 	if (GetMovementMode() == MovementModeTags::Grounded || GetMovementMode() == MovementModeTags::Slide)
 	{
+		auto* InputState{PlayerInputState.GetMutablePtr<FGASPInputState>()};
 		if (GetStanceMode() == StanceTags::Crouching)
 		{
-			PlayerInputState.DesiredStance = StanceTags::Standing;
+			InputState->DesiredStance = StanceTags::Standing;
 		}
 		else
 		{
-			PlayerInputState.DesiredStance = StanceTags::Crouching;
+			InputState->DesiredStance = StanceTags::Crouching;
 		}
 	}
 }
@@ -86,7 +88,7 @@ void AGASPCharacterExample::JumpAction(bool bPressed)
 		StopRagdolling();
 		return;
 	}
-
+	auto* InputState{PlayerInputState.GetMutablePtr<FGASPInputState>()};
 	if (bPressed && !IsDoingTraversal())
 	{
 		if (const auto [bTraversalCheckFailed, bMontageSelectionFailed] = TryTraversalAction(); bTraversalCheckFailed ||
@@ -94,7 +96,7 @@ void AGASPCharacterExample::JumpAction(bool bPressed)
 		{
 			if (GetStanceMode() != StanceTags::Standing)
 			{
-				PlayerInputState.DesiredStance = StanceTags::Standing;
+				InputState->DesiredStance = StanceTags::Standing;
 			}
 			else
 			{
@@ -111,13 +113,15 @@ void AGASPCharacterExample::JumpAction(bool bPressed)
 
 void AGASPCharacterExample::AimAction(bool bPressed)
 {
+	
+	auto* InputState{PlayerInputState.GetMutablePtr<FGASPInputState>()};
 	if (bPressed)
 	{
-		PlayerInputState.DesiredRotationMode = RotationTags::Aim;
+		InputState->DesiredRotationMode = RotationTags::Aim;
 	}
 	else
 	{
-		PlayerInputState.DesiredRotationMode = RotationTags::OrientToMovement;
+		InputState->DesiredRotationMode = RotationTags::OrientToMovement;
 	}
 }
 
@@ -135,13 +139,14 @@ void AGASPCharacterExample::RagdollAction(bool bPressed)
 
 void AGASPCharacterExample::StrafeAction(bool bPressed)
 {
+	auto InputState{PlayerInputState.GetMutablePtr<FGASPInputState>()};
 	if (MoverInputs_PostSim.RotationMode != RotationTags::Strafe)
 	{
-		PlayerInputState.DesiredRotationMode = RotationTags::Strafe;
+		InputState->DesiredRotationMode = RotationTags::Strafe;
 	}
 	else
 	{
-		PlayerInputState.DesiredRotationMode = RotationTags::OrientToMovement;
+		InputState->DesiredRotationMode = RotationTags::OrientToMovement;
 	}
 }
 
