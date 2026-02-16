@@ -6,6 +6,24 @@
 
 class UCurveVector;
 
+USTRUCT(BlueprintType)
+struct FGaitSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gait")
+	float MaxSpeed{.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gait")
+	float Acceleration{.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gait")
+	float FacingTime{.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gait")
+	float TurnStrength{.0f};
+};
+
 /**
  * 
  */
@@ -21,10 +39,10 @@ public:
 	UCurveVector* GetMovementCurve() const;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TMap<FGameplayTag, float> SpeedMap{
-		{GaitTags::Walk, 165.f},
-		{GaitTags::Run, 375.f},
-		{GaitTags::Sprint, 575.f}
+	TMap<FGameplayTag, FGaitSettings> SettingsMap{
+		{GaitTags::Walk, {165.f, 500.f, .4f, 8.f}},
+		{GaitTags::Run, {375.f,800.f, .4f, 8.f}},
+		{GaitTags::Sprint, {575.f,300.f, .8f, 4.f}}
 	};
 
 protected:

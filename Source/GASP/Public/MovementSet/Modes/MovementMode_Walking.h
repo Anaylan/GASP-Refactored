@@ -27,36 +27,7 @@ public:
 	                                             const FQuat& CurrentFacing, FVector& InOutAngularVelocityDegrees,
 	                                             FVector& InOutVelocity) override;
 	virtual void Activate() override;
-
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)",
-		meta=(ForceUnits="CentimetersPerSecond"))
-	float WalkSpeed{165.f};
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
-	float WalkAcceleration{500.f};
-
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
-	float RunAcceleration{800.f};
-
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
-	float SprintAcceleration{300.f};
-
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)",
-		meta=(ForceUnits="CentimetersPerSecond"))
-	float CrouchSpeed{200.f};
-
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
-	float WalkRunTurnStrength{8.f};
-
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
-	float SprintTurnStrength{4.f};
-
+	
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
 	float GaitChangeDeceleration{300.f};
@@ -64,15 +35,7 @@ public:
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
 	float StoppingDeceleration{1000.f};
-
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
-	float WalkRunFacingTime{.4f};
-
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
-	float SprintFacingTime{.8f};
-
+	
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
 	float IdleFacingTime{.2f};

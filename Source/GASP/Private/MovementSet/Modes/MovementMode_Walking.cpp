@@ -31,43 +31,22 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 
 	const auto* CharacterInputs = StartState.InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>();
 
-	const FVector FwdCurrent = CurrentFacing.GetForwardVector();
-	const FVector FwdDesired = DesiredFacing.GetForwardVector();
-
-	const float CurrentOffset = FMath::RadiansToDegrees(FMath::Atan2(
-		FwdDesired.X * FwdCurrent.Y - FwdDesired.Y * FwdCurrent.X,
-		FwdDesired.X * FwdCurrent.X + FwdDesired.Y * FwdCurrent.Y
-	));
-
-	const float RotRad{
-		FMath::DegreesToRadians(FMath::Clamp(CharacterInputs->RotationOffset, CurrentOffset - 179.f,
-		                                     CurrentOffset + 179.f))
-	};
-	const auto OverridenDesiredFacing{DesiredFacing * FQuat{FVector::UpVector, RotRad}};
-
-	auto SharedSettings = GetMoverComponent()->FindSharedSettings<UGASPStanceSettings>();
-	StanceSettings = SharedSettings ? SharedSettings->StanceSettings.FindRef(CharacterInputs->Stance) : StanceSettings;
-	float RunSpeed{375.f}, SprintSpeed{585.f};
-	if (StanceSettings)
+	if (const auto SharedSettings = GetMoverComponent()->FindSharedSettings<UGASPStanceSettings>())
 	{
-		RunSpeed = StanceSettings->SpeedMap.FindRef(GaitTags::Run);
-		SprintSpeed = StanceSettings->SpeedMap.FindRef(GaitTags::Sprint);
+		StanceSettings = SharedSettings->StanceSettings.FindRef(CharacterInputs->Stance);
 	}
 
-	MaxSpeedOverride = StanceSettings ? StanceSettings->SpeedMap.FindRef(CharacterInputs->Gait) : RunSpeed;
+	const auto* RunSettings{StanceSettings->SettingsMap.Find(GaitTags::Run)};
+	const auto* SprintSettings{StanceSettings->SettingsMap.Find(GaitTags::Sprint)};
+	const auto* CurrentSettings{StanceSettings->SettingsMap.Find(CharacterInputs->Gait)};
 
-	if (CharacterInputs->Gait == GaitTags::Walk)
-	{
-		Acceleration = WalkAcceleration;
-	}
-	else if (CharacterInputs->Gait == GaitTags::Sprint)
-	{
-		Acceleration = InOutVelocity.Size2D() > RunSpeed ? SprintAcceleration : RunAcceleration;
-	}
-	else
-	{
-		Acceleration = RunAcceleration;
-	}
+	const float RunSpeed{RunSettings->MaxSpeed};
+	const float SprintSpeed{SprintSettings->MaxSpeed};
+
+	MaxSpeedOverride = CurrentSettings->MaxSpeed;
+	Acceleration = CharacterInputs->Gait == GaitTags::Sprint && InOutVelocity.Size2D() < RunSpeed
+		               ? RunSettings->Acceleration
+		               : CurrentSettings->Acceleration;
 
 	Deceleration = CharacterInputs->GetMoveInput().IsZero()
 		               ? bJustLanded
@@ -75,15 +54,37 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 			                 : 20000.f
 		               : GaitChangeDeceleration;
 
-	TurningStrength = FMath::GetMappedRangeValueClamped<float, float>({RunSpeed, SprintSpeed},
-	                                                                  {WalkRunTurnStrength, SprintTurnStrength},
-	                                                                  InOutVelocity.Size2D());
 
-	const float YawDeg{static_cast<float>((DesiredFacing.Rotator() - CurrentFacing.Rotator()).GetNormalized().Yaw)};
+	const auto FwdCurrent{CurrentFacing.GetForwardVector()};
+	const auto FwdDesired{DesiredFacing.GetForwardVector()};
+
+	const float CurrentOffset{
+		static_cast<float>(FMath::RadiansToDegrees(FMath::Atan2(
+			FwdDesired.X * FwdCurrent.Y - FwdDesired.Y * FwdCurrent.X,
+			FwdDesired.X * FwdCurrent.X + FwdDesired.Y * FwdCurrent.Y
+		)))
+	};
+
+	const float RotRad{
+		FMath::DegreesToRadians(FMath::Clamp(CharacterInputs->RotationOffset, CurrentOffset - 179.f,
+		                                     CurrentOffset + 179.f))
+	};
+	const auto OverridenDesiredFacing{DesiredFacing * FQuat{FVector::UpVector, RotRad}};
+	const FVector2f SpeedRange{RunSpeed, SprintSpeed};
+
+	TurningStrength = FMath::GetMappedRangeValueClamped<float, float>(SpeedRange,
+	                                                                  {
+		                                                                  RunSettings->TurnStrength,
+		                                                                  SprintSettings->TurnStrength
+	                                                                  },
+	                                                                  InOutVelocity.Size2D());
 	float VelocityMapped{
-		FMath::GetMappedRangeValueClamped<float, float>({RunSpeed, SprintSpeed}, {WalkRunFacingTime, SprintFacingTime},
+		FMath::GetMappedRangeValueClamped<float, float>(SpeedRange,
+		                                                {RunSettings->FacingTime, SprintSettings->FacingTime},
 		                                                InOutVelocity.Size2D())
 	};
+
+	const float YawDeg{static_cast<float>((DesiredFacing.Rotator() - CurrentFacing.Rotator()).GetNormalized().Yaw)};
 	FacingSmoothingTime = CharacterInputs->GetMoveInput().IsZero()
 		                      ? IdleFacingTime
 		                      : FMath::GetMappedRangeValueClamped<float, float>(
@@ -92,15 +93,12 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 	Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, DesiredVelocity, OverridenDesiredFacing,
 	                                       CurrentFacing, InOutAngularVelocityDegrees, InOutVelocity);
 
-	if (CurrentOffset <= -135.f)
+	if (FMath::Abs(CurrentOffset) >= 135.f)
 	{
-		InOutAngularVelocityDegrees.Z = FMath::Clamp(InOutAngularVelocityDegrees.Z,
-		                                             CharacterInputs->ControlRotationRate, 1000.f);
-	}
-	else if (CurrentOffset >= 135.f)
-	{
-		InOutAngularVelocityDegrees.Z = FMath::Clamp(InOutAngularVelocityDegrees.Z,
-		                                             -1000.f, CharacterInputs->ControlRotationRate);
+		const float Rate{CharacterInputs->ControlRotationRate};
+		InOutAngularVelocityDegrees.Z = (CurrentOffset <= -135.f)
+			                                ? FMath::Clamp(InOutAngularVelocityDegrees.Z, Rate, 1000.f)
+			                                : FMath::Clamp(InOutAngularVelocityDegrees.Z, -1000.f, Rate);
 	}
 }
 
