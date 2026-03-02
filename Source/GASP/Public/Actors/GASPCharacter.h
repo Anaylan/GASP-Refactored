@@ -12,9 +12,13 @@
 enum class EStanceMode : uint8;
 class UNavMoverComponent;
 class UGASPMoverComponent;
+class UGASPCharacterSettings;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStateChanged, FGameplayTag, OldGameplayTag, FGameplayTag,
                                              NewGameplayTag);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnGameplayTagContainerChanged, FGameplayTagContainer,
+                                             OldGameplayTagContainer, FGameplayTagContainer, NewGameplayTagContainer);
 
 UCLASS()
 class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterface
@@ -27,31 +31,30 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 	/** The CapsuleComponent being used for movement collision (by CharacterMovement). Always treated as being vertically aligned in simple collision check functions. */
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	TObjectPtr<class UCapsuleComponent> CapsuleComponent;
-	
+
 	UPROPERTY(BlueprintGetter=GetMovementMode, ReplicatedUsing=OnRep_AllowedMovementMode, Transient)
 	FGameplayTag AllowedMovementMode{MovementModeTags::Grounded};
 	UPROPERTY(BlueprintGetter=GetStanceMode, Transient)
 	FGameplayTag AllowedStanceMode{StanceTags::Standing};
-	UPROPERTY(BlueprintGetter=GetOverlayMode, ReplicatedUsing=OnRep_OverlayMode, Transient)
-	FGameplayTag OverlayMode{OverlayModeTags::Default};
 	UPROPERTY(BlueprintGetter=GetPoseMode, ReplicatedUsing=OnRep_PoseMode, Transient)
 	FGameplayTag PoseMode{PoseModeTags::Default};
 	UPROPERTY(BlueprintGetter=GetLocomotionAction, ReplicatedUsing=OnRep_LocomotionAction, Transient)
 	FGameplayTag LocomotionAction{FGameplayTag::EmptyTag};
 
+	UPROPERTY(BlueprintGetter=GetOverlayMode, BlueprintSetter=SetOverlayMode, ReplicatedUsing=OnRep_OverlayMode,
+		Transient)
+	FGameplayTagContainer OverlayTagContainer{OverlayModeTags::Default};
+
 protected:
-	UPROPERTY(EditAnywhere, Category="PoseSearchData|Choosers", BlueprintReadOnly)
-	TObjectPtr<class UChooserTable> OverlayTable{nullptr};
-	UPROPERTY(EditAnywhere, Category="PoseSearchData|Choosers", BlueprintReadOnly)
-	TObjectPtr<UChooserTable> PosesTable{nullptr};
-	UPROPERTY(EditAnywhere, Category="PoseSearchData|Choosers", BlueprintReadOnly)
-	TObjectPtr<UChooserTable> RotationCurveTable{nullptr};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Settings")
+	TObjectPtr<UGASPCharacterSettings> Settings;
 
 	UPROPERTY(BlueprintReadOnly)
 	float DebugAngle{0.f};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<class UMotionWarpingComponent> MotionWarpingComponent{};
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components", Replicated)
 	TObjectPtr<class UGASPTraversalComponent> TraversalComponent{};
 
@@ -76,17 +79,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character", Transient)
 	FRagdollingState RagdollingState;
 
-	UPROPERTY(EditDefaultsOnly)
-	FGameplayTag InitialOverlayMode{OverlayModeTags::Default};
-	UPROPERTY(EditDefaultsOnly)
-	FGameplayTag InitialPoseMode{PoseModeTags::Default};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character")
-	TObjectPtr<UAnimMontage> GetUpMontageFront{};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character")
-	TObjectPtr<UAnimMontage> GetUpMontageBack{};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character")
-	uint8 bLimitInitialRagdollSpeed : 1{false};
-
 	UFUNCTION(BlueprintPure)
 	UAnimMontage* SelectGetUpMontage(bool bRagdollFacingUpward);
 
@@ -97,11 +89,6 @@ protected:
 	/** Please add a function description */
 	UFUNCTION(BlueprintPure, Category = "Traversal")
 	struct FTraversalCheckInputs GetTraversalCheckInputs() const;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta=(ClampMin="0.0", ClampMax="1.0"))
-	float AnalogMovementThreshold{.7f};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	EAnalogStickBehaviorMode MovementStickMode{EAnalogStickBehaviorMode::FixedSingleGait};
 
 	UFUNCTION(BlueprintPure, Category = "Input")
 	bool HasFullMovementInput() const;
@@ -126,7 +113,7 @@ protected:
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input", meta = (BaseStruct = "/Script/GASP.GASPInputState"))
 	FInstancedStruct PlayerInputState{FGASPInputState::StaticStruct()};
-	
+
 	UPROPERTY(BlueprintReadOnly, Category=Character)
 	uint8 bJustPressedJump : 1;
 
@@ -146,7 +133,7 @@ public:
 	virtual FGameplayTag GetAllowedRotationMode();
 	UFUNCTION(BlueprintPure)
 	virtual FGameplayTag GetAllowedGait();
-	
+
 	/** Returns Mesh subobject **/
 	inline class USkeletalMeshComponent* GetMesh() const { return Mesh; }
 
@@ -162,6 +149,15 @@ public:
 	// Accessor for the actor's movement component
 	UFUNCTION(BlueprintPure, Category = Mover)
 	UGASPMoverComponent* GetMoverComponent() const { return CharacterMotionComponent; }
+
+	/** Name of the MotionWarpingComponent. */
+	static FName MotionWarpingComponentName;
+
+	/** Name of the CharacterMotionComponent. */
+	static FName CharacterMotionComponentName;
+
+	/** Name of the NavMoverComponent. */
+	static FName NavMoverComponentName;
 
 	//~ Begin INavAgentInterface Interface
 	virtual FVector GetNavAgentLocation() const override;
@@ -181,6 +177,8 @@ protected:
 	TObjectPtr<UNavMoverComponent> NavMoverComponent;
 
 public:
+	UPROPERTY(BlueprintReadOnly)
+	FGASPMoverInputs MoverInputs_PreSim{};
 
 	UFUNCTION(BlueprintCallable, Category="Traversal")
 	FTraversalResult TryTraversalAction() const;
@@ -188,7 +186,7 @@ public:
 	bool IsDoingTraversal() const;
 
 	UPROPERTY(BlueprintAssignable)
-	FOnStateChanged OverlayModeChanged;
+	FOnGameplayTagContainerChanged OverlayContainerChanged;
 	UPROPERTY(BlueprintAssignable)
 	FOnStateChanged PoseModeChanged;
 	UPROPERTY(BlueprintAssignable)
@@ -199,11 +197,11 @@ public:
 	FOnStateChanged MovementModeChanged;
 
 	UFUNCTION(BlueprintNativeEvent)
-	void OnOverlayModeChanged(const FGameplayTag OldOverlayMode, const FGameplayTag NewOverlayMode);
+	void OnOverlayModeChanged(const FGameplayTagContainer OldOverlayMode, const FGameplayTagContainer NewOverlayMode);
 	UFUNCTION(BlueprintNativeEvent)
 	void OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode);
 
-	void LinkAnimInstance(const UChooserTable* DataTable) const;
+	void LinkAnimInstance(const class UChooserTable* DataTable) const;
 
 	// Sets default values for this character's properties
 	explicit AGASPCharacter(const FObjectInitializer& ObjectInitializer);
@@ -211,7 +209,7 @@ public:
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-	
+
 	/****************************
 	 *		Movement States		*
 	 ****************************/
@@ -219,11 +217,11 @@ public:
 	void SetMovementMode(const FGameplayTag NewMovementMode, const bool bForce = false);
 	UFUNCTION(BlueprintCallable)
 	void SetStanceMode(const FGameplayTag NewStanceMode, const bool bForce = false);
-	
+
 	UFUNCTION(BlueprintCallable)
-	void SetOverlayMode(const FGameplayTag NewOverlayMode, const bool bForce = false);
+	void SetOverlayMode(const FGameplayTagContainer NewOverlayMode);
 	UFUNCTION(Server, Reliable)
-	void Server_SetOverlayMode(const FGameplayTag NewOverlayMode);
+	void Server_SetOverlayMode(const FGameplayTagContainer NewOverlayMode);
 
 	UFUNCTION(BlueprintCallable)
 	void SetPoseMode(const FGameplayTag NewPoseMode, const bool bForce = false);
@@ -249,9 +247,9 @@ public:
 	virtual void StopJumping();
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTag GetOverlayMode() const
+	FORCEINLINE FGameplayTagContainer GetOverlayMode() const
 	{
-		return OverlayMode;
+		return OverlayTagContainer;
 	}
 
 	UFUNCTION(BlueprintPure)
@@ -302,7 +300,7 @@ private:
 	void StartRagdollingImplementation();
 
 	UFUNCTION()
-	virtual void OnRep_OverlayMode(const FGameplayTag& OldOverlayMode);
+	virtual void OnRep_OverlayMode(const FGameplayTagContainer& OldOverlayMode);
 	UFUNCTION()
 	virtual void OnRep_PoseMode(const FGameplayTag& OldPoseMode);
 	UFUNCTION()

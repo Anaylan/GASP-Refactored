@@ -19,7 +19,9 @@ UGASPMoverComponent::UGASPMoverComponent()
 	MovementModes.Add(DefaultModeNames::Falling,
 	                  CreateDefaultSubobject<UMovementMode_Falling>(DefaultModeNames::Falling));
 	MovementModes.Add(DefaultModeNames::Flying, CreateDefaultSubobject<UFlyingMode>(DefaultModeNames::Flying));
-
+	MovementModes.Add(UNullMovementMode::NullModeName,
+	                  CreateDefaultSubobject<UNullMovementMode>(UNullMovementMode::NullModeName));
+	
 	bSyncInputsForSimProxy = true;
 }
 

@@ -27,7 +27,7 @@ public:
 	                                             const FQuat& CurrentFacing, FVector& InOutAngularVelocityDegrees,
 	                                             FVector& InOutVelocity) override;
 	virtual void Activate() override;
-	
+
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
 	float GaitChangeDeceleration{300.f};
@@ -35,16 +35,15 @@ public:
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
 	float StoppingDeceleration{1000.f};
-	
+
 	/** Please add a variable description */
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)")
 	float IdleFacingTime{.2f};
 
-	/** Please add a variable description */
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Blueprint Overrides (Change These)",
-		meta=(ForceUnits="CentimetersPerSecond"))
-	TObjectPtr<UGASPGaitSettings> StanceSettings{};
-
 private:
+	UPROPERTY(Transient)
 	uint8 bJustLanded : 1{false};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UGASPGaitSettings> StanceSettings{};
 };

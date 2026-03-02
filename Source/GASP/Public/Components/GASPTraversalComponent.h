@@ -161,15 +161,6 @@ class GASP_API UGASPTraversalComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-	/** Timer handle for ending traversal actions */
-	FTimerHandle TraversalEndHandle;
-
-	/** Manager for asynchronous loading of assets */
-	FStreamableManager StreamableManager;
-
-	/** Handle for the current streaming request */
-	TSharedPtr<FStreamableHandle> StreamableHandle;
-
 public:
 	// Sets default values for this component's properties
 	UGASPTraversalComponent();
@@ -243,7 +234,7 @@ protected:
 
 	/** Reference to the data table used for choosing traversal animations */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Traversal")
-	TSoftObjectPtr<class UChooserTable> TraversalAnimationsChooserTable;
+	TObjectPtr<class UChooserTable> TraversalAnimationsChooserTable;
 
 	/**
 	 * Identifies front and back ledges of an obstacle from a hit result

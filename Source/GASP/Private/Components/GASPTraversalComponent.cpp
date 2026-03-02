@@ -8,7 +8,6 @@
 #include "IObjectChooser.h"
 #include "MotionWarpingComponent.h"
 #include "Net/UnrealNetwork.h"
-#include "Engine/AssetManager.h"
 #include "MovementSet/GASPMoverComponent.h"
 #include "DefaultMovementSet/LayeredMoves/AnimRootMotionLayeredMove.h"
 
@@ -62,13 +61,6 @@ void UGASPTraversalComponent::BeginPlay()
 	{
 		AnimInstance = Cast<UGASPAnimInstance>(MeshComponent->GetAnimInstance());
 	}
-
-	StreamableHandle = StreamableManager.RequestAsyncLoad(TraversalAnimationsChooserTable.ToSoftObjectPath(),
-	                                                      FStreamableDelegate::CreateLambda([this]()
-	                                                      {
-		                                                      StreamableHandle.Reset();
-	                                                      }),
-	                                                      FStreamableManager::DefaultAsyncLoadPriority, false);
 }
 
 void UGASPTraversalComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -343,7 +335,7 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	IGASPInteractionInterface::Execute_SetInteractionTransform(AnimInstance.Get(), InteractionTransform);
 
 	// Step 5.3: Evaluate a chooser to select all montages that match the conditions of the traversal check.
-	auto* ChooserTable{TraversalAnimationsChooserTable.LoadSynchronous()};
+	// auto* ChooserTable{TraversalAnimationsChooserTable.LoadSynchronous()};
 	FTraversalChooserInput ChooserParameters;
 	ChooserParameters.ActionType = NewTraversalCheckResult.ActionType;
 	ChooserParameters.Speed = MoverComponent->GetVelocity().Size2D();
@@ -365,7 +357,7 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	Context.AddStructParam(ChooserOutput);
 	auto AnimationMontage{
 		UChooserFunctionLibrary::EvaluateObjectChooserBase(
-			Context, UChooserFunctionLibrary::MakeEvaluateChooser(ChooserTable), UAnimMontage::StaticClass())
+			Context, UChooserFunctionLibrary::MakeEvaluateChooser(TraversalAnimationsChooserTable), UAnimMontage::StaticClass())
 	};
 
 	NewTraversalCheckResult.ActionType = ChooserOutput.ActionType;

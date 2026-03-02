@@ -158,7 +158,7 @@ void UGASPAnimInstance::NativeBeginPlay()
 		return;
 	}
 
-	CachedCharacter->OverlayModeChanged.AddUniqueDynamic(this, &ThisClass::OnOverlayModeChanged);
+	CachedCharacter->OverlayContainerChanged.AddUniqueDynamic(this, &ThisClass::OnOverlayModeChanged);
 	CachedCharacter->PoseModeChanged.AddUniqueDynamic(this, &ThisClass::OnPoseModeChanged);
 
 	StateContainer = PreviousStateContainer = RecentStateContainer = CachedCharacter->StateContainer;

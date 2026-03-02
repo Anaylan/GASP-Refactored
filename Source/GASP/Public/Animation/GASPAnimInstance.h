@@ -38,7 +38,7 @@ public:
 	virtual void NativePostUpdateAnimation();
 
 	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
-	
+
 	// Creates a snapshot for the final ragdoll pose
 	FPoseSnapshot& SnapshotFinalRagdollPose();
 
@@ -101,7 +101,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Overlay", meta = (BlueprintThreadSafe))
 	bool CanOverlayTransition() const;
 	UFUNCTION(BlueprintImplementableEvent, Category = "Overlay")
-	void OnOverlayModeChanged(FGameplayTag OldGameplayTag, FGameplayTag NewGameplayTag);
+	void OnOverlayModeChanged(FGameplayTagContainer OldGameplayTagContainer,
+	                          FGameplayTagContainer NewGameplayTagContainer);
 	UFUNCTION(BlueprintImplementableEvent, Category = "Overlay")
 	void OnPoseModeChanged(FGameplayTag OldGameplayTag, FGameplayTag NewGameplayTag);
 

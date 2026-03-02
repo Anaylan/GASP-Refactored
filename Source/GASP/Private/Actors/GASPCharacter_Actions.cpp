@@ -4,13 +4,14 @@
 #include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
 #include "MovementSet/GASPMoverComponent.h"
 #include "Net/Core/PushModel/PushModel.h"
+#include "Settings/GASPCharacterSettings.h"
 
 static const FName NAME_pelvis(TEXT("pelvis"));
 static const FName NAME_spine_03(TEXT("spine_03"));
 
 UAnimMontage* AGASPCharacter::SelectGetUpMontage(const bool bRagdollFacingUpward)
 {
-	return bRagdollFacingUpward ? GetUpMontageBack : GetUpMontageFront;
+	return bRagdollFacingUpward ? Settings->GetUpMontageBack : Settings->GetUpMontageFront;
 }
 
 bool AGASPCharacter::IsRagdollingAllowedToStart() const
@@ -95,7 +96,7 @@ void AGASPCharacter::StartRagdollingImplementation()
 
 	RagdollingState.PullForce = 0.0f;
 
-	if (bLimitInitialRagdollSpeed)
+	if (Settings->bLimitInitialRagdollSpeed)
 	{
 		// Limit the ragdoll's speed for a few frames, because for some unclear reason,
 		// it can get a much higher initial speed than the character's last speed.
@@ -119,11 +120,12 @@ void AGASPCharacter::StartRagdollingImplementation()
 	}
 
 	// Clear the character movement mode and set the locomotion action to ragdolling.
-	// TODO: maybe replace NAME_None to DefaultModeNames::Falling or create new movement mode?
-	GetMoverComponent()->QueueNextMode(NAME_None);
-
-	SetLocomotionAction(LocomotionActionTags::Ragdoll);
-	OnStartRagdolling();
+	GetWorldTimerManager().SetTimerForNextTick([this]()
+	{
+		GetMoverComponent()->QueueNextMode(UNullMovementMode::NullModeName);
+		SetLocomotionAction(LocomotionActionTags::Ragdoll);
+		OnStartRagdolling();
+	});
 }
 
 void AGASPCharacter::SetRagdollTargetLocation(const FVector& NewTargetLocation)
@@ -180,7 +182,7 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 	const FVector NewLocation{RagdollTraceGround(bGrounded)};
 	//TODO: this line conflict with mover
 	// SetActorLocation(NewLocation, false);
-	
+
 	{
 		GetMesh()->SetWorldLocation({
 			NewLocation.X, NewLocation.Y, NewLocation.Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
