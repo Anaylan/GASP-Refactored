@@ -36,14 +36,14 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 	FGameplayTag AllowedMovementMode{MovementModeTags::Grounded};
 	UPROPERTY(BlueprintGetter=GetStanceMode, Transient)
 	FGameplayTag AllowedStanceMode{StanceTags::Standing};
-	UPROPERTY(BlueprintGetter=GetPoseMode, ReplicatedUsing=OnRep_PoseMode, Transient)
+	UPROPERTY(EditDefaultsOnly, BlueprintGetter=GetPoseMode, ReplicatedUsing=OnRep_PoseMode, Transient)
 	FGameplayTag PoseMode{PoseModeTags::Default};
 	UPROPERTY(BlueprintGetter=GetLocomotionAction, ReplicatedUsing=OnRep_LocomotionAction, Transient)
 	FGameplayTag LocomotionAction{FGameplayTag::EmptyTag};
 
-	UPROPERTY(BlueprintGetter=GetOverlayMode, BlueprintSetter=SetOverlayMode, ReplicatedUsing=OnRep_OverlayMode,
-		Transient)
-	FGameplayTagContainer OverlayTagContainer{OverlayModeTags::Default};
+	UPROPERTY(BlueprintGetter=GetOverlayMode, BlueprintSetter=SetOverlayMode,
+		ReplicatedUsing=OnRep_OverlayMode, Transient)
+	FGameplayTagContainer OverlayTagContainer{};
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Settings")
@@ -150,6 +150,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = Mover)
 	UGASPMoverComponent* GetMoverComponent() const { return CharacterMotionComponent; }
 
+	// Accessor for the actor's nav movement component
+	UFUNCTION(BlueprintPure, Category = Mover)
+	UNavMoverComponent* GetNavMoverComponent() const { return NavMoverComponent; }
+
 	/** Name of the MotionWarpingComponent. */
 	static FName MotionWarpingComponentName;
 
@@ -167,6 +171,14 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector2D TwinStickAimDirection{FVector2D::ZeroVector};
+
+	void SetSettings(UGASPCharacterSettings* const NewSettings);
+
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE UGASPCharacterSettings* GetSettings() const
+	{
+		return Settings;
+	}
 
 protected:
 	UPROPERTY(Category = Movement, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))

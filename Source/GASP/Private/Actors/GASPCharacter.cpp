@@ -578,6 +578,14 @@ void AGASPCharacter::UpdateNavigationRelevance()
 	}
 }
 
+void AGASPCharacter::SetSettings(UGASPCharacterSettings* const NewSettings)
+{
+	if (NewSettings != Settings)
+	{
+		Settings = NewSettings;
+	}
+}
+
 FTraversalResult AGASPCharacter::TryTraversalAction() const
 {
 	if (IsValid(TraversalComponent))
