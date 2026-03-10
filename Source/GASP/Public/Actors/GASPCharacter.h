@@ -79,6 +79,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character", Transient)
 	FRagdollingState RagdollingState;
 
+	// Cached to restore the mesh transform after ragdoll without assuming default values.
+	FTransform MeshRelativeTransformCache{FTransform::Identity};
+
 	UFUNCTION(BlueprintPure)
 	UAnimMontage* SelectGetUpMontage(bool bRagdollFacingUpward);
 
@@ -288,6 +291,12 @@ public:
 		return AllowedStanceMode;
 	}
 
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE UGASPTraversalComponent* GetTraversalComponent() const
+	{
+		return TraversalComponent;
+	}
+	
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	FGameplayTagContainer StateContainer;
 

@@ -1,10 +1,11 @@
-﻿#include "Actors/GASPCharacter.h"
+#include "Actors/GASPCharacter.h"
 #include "Animation/GASPAnimInstance.h"
 #include "Components/CapsuleComponent.h"
 #include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
 #include "MovementSet/GASPMoverComponent.h"
 #include "Net/Core/PushModel/PushModel.h"
 #include "Settings/GASPCharacterSettings.h"
+#include "DefaultMovementSet/InstantMovementEffects/BasicInstantMovementEffects.h"
 
 static const FName NAME_pelvis(TEXT("pelvis"));
 static const FName NAME_spine_03(TEXT("spine_03"));
@@ -153,6 +154,10 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 	// Since we are dealing with physics here, we should not use functions such as USkinnedMeshComponent::GetSocketTransform() as
 	// they may return an incorrect result in situations like when the animation blueprint is not ticking or when URO is enabled.
 	const auto* PelvisBody{GetMesh()->GetBodyInstance(NAME_pelvis)};
+	if (!PelvisBody)
+	{
+		return;
+	}
 	FVector PelvisLocation;
 
 	FPhysicsCommand::ExecuteRead(PelvisBody->ActorHandle,
@@ -178,15 +183,21 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 	// While we could get rid of the line trace here and just use RagdollTargetLocation
 	// as the character's location, we don't do that because the camera depends on the
 	// capsule's bottom location, so its removal will cause the camera to behave erratically.
-	bool bGrounded;
-	const FVector NewLocation{RagdollTraceGround(bGrounded)};
-	//TODO: this line conflict with mover
-	// SetActorLocation(NewLocation, false);
-
 	{
-		GetMesh()->SetWorldLocation({
-			NewLocation.X, NewLocation.Y, NewLocation.Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
-		});
+		bool bGrounded;
+		const FVector NewLocation{RagdollTraceGround(bGrounded)};
+
+		// Move the mesh component (not the physics bodies) so the root bone and camera follow the ragdoll.
+		GetMesh()->SetWorldLocationAndRotationNoPhysics({
+			                                                NewLocation.X, NewLocation.Y,
+			                                                NewLocation.Z - GetCapsuleComponent()->
+			                                                GetScaledCapsuleHalfHeight()
+		                                                }, GetMesh()->GetComponentRotation());
+
+		const auto TeleportEffect{MakeShared<FTeleportEffect>()};
+		TeleportEffect->TargetLocation = NewLocation;
+		TeleportEffect->bUseActorRotation = true;
+		GetMoverComponent()->QueueInstantMovementEffect(TeleportEffect);
 	}
 
 	// Zero target location means that it hasn't been replicated yet, so we can't apply the logic below.
@@ -206,6 +217,10 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 		};
 
 		auto* PullForceBody{GetMesh()->GetBodyInstance(PullForceBoneName)};
+		if (!PullForceBody)
+		{
+			return;
+		}
 
 		FPhysicsCommand::ExecuteWrite(PullForceBody->ActorHandle, [this](const FPhysicsActorHandle& ActorHandle)
 		{
@@ -249,7 +264,11 @@ void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
 
 FVector AGASPCharacter::RagdollTraceGround(bool& bGrounded) const
 {
-	auto RagdollLocation{!RagdollTargetLocation.IsZero() ? FVector{RagdollTargetLocation} : GetActorLocation()};
+	auto RagdollLocation{
+		!RagdollTargetLocation.IsZero()
+			? FVector{RagdollTargetLocation}
+			: GetActorLocation()
+	};
 
 	// We use a sphere sweep instead of a simple line trace to keep capsule
 	// movement consistent between ragdolling and regular character movement.
@@ -349,9 +368,22 @@ void AGASPCharacter::StopRagdollingImplementation()
 	}
 
 	auto* AnimationInstance{Cast<UGASPAnimInstance>(GetMesh()->GetAnimInstance())};
+	if (!AnimationInstance)
+	{
+		return;
+	}
 	auto& FinalRagdollPose{AnimationInstance->SnapshotFinalRagdollPose()};
 
-	const auto PelvisTransform{GetMesh()->GetSocketTransform(NAME_pelvis)};
+	auto PelvisTransform{GetMesh()->GetSocketTransform(NAME_pelvis)};
+	if (const auto* PelvisBody{GetMesh()->GetBodyInstance(NAME_pelvis)})
+	{
+		FPhysicsCommand::ExecuteRead(PelvisBody->ActorHandle,
+		                             [&PelvisTransform](const FPhysicsActorHandle& ActorHandle)
+		                             {
+			                             PelvisTransform =
+				                             FPhysicsInterface::GetTransform_AssumesLocked(ActorHandle, true);
+		                             });
+	}
 	const auto PelvisRotation{PelvisTransform.Rotator()};
 
 	// Disable mesh physics simulation and enable capsule collision.
@@ -368,11 +400,16 @@ void AGASPCharacter::StopRagdollingImplementation()
 
 	// Determine whether the ragdoll is facing upward or downward and set the actor rotation accordingly.
 	const auto bRagdollFacingUpward{FMath::UnwindDegrees(PelvisRotation.Roll) <= 0.0f};
+	// auto UpdatedComponent{GetMoverComponent()->GetUpdatedComponent()};
 
 	auto NewActorRotation{GetActorRotation()};
 	NewActorRotation.Yaw = bRagdollFacingUpward ? PelvisRotation.Yaw - 180.0f : PelvisRotation.Yaw;
 
-	SetActorLocationAndRotation(NewActorLocation, NewActorRotation, false, nullptr, ETeleportType::TeleportPhysics);
+	auto TeleportEffect = MakeShared<FTeleportEffect>();
+	TeleportEffect->TargetLocation = NewActorLocation;
+	TeleportEffect->TargetRotation = NewActorRotation;
+	GetMoverComponent()->QueueInstantMovementEffect(TeleportEffect);
+
 	// Attach the mesh back and restore its default relative location.
 	const auto& ActorTransform{GetActorTransform()};
 
@@ -414,12 +451,9 @@ void AGASPCharacter::StopRagdollingImplementation()
 	else
 	{
 		GetMoverComponent()->QueueNextMode(DefaultModeNames::Falling);
-		//TODO
-		auto* SyncState = GetMoverComponent()->GetSyncState().SyncStateCollection.FindMutableDataByType<
-			FMoverDefaultSyncState>();
-		SyncState->SetTransforms_WorldSpace(SyncState->GetLocation_WorldSpace(), SyncState->GetOrientation_WorldSpace(),
-		                                    RagdollingState.Velocity,
-		                                    SyncState->GetAngularVelocityDegrees_WorldSpace());
+		auto VelocityEffect{MakeShared<FApplyVelocityEffect>()};
+		VelocityEffect->VelocityToApply = RagdollingState.Velocity;
+		GetMoverComponent()->QueueInstantMovementEffect(VelocityEffect);
 	}
 
 	SetLocomotionAction(FGameplayTag::EmptyTag);

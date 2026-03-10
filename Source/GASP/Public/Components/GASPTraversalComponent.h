@@ -2,7 +2,6 @@
 
 #include "GameplayTagContainer.h"
 #include "Components/ActorComponent.h"
-#include "Engine/StreamableManager.h"
 #include "PoseSearch/PoseSearchHistory.h"
 #include "Types/StructTypes.h"
 #include "GASPTraversalComponent.generated.h"
@@ -13,7 +12,16 @@ class UCapsuleComponent;
 class USplineComponent;
 class UMotionWarpingComponent;
 class AGASPCharacter;
+class UChooserTable;
 
+UENUM(BlueprintType)
+enum class ETraversalEventType : uint8
+{
+	Triggered,
+	Done
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTraversalEventDelegate, ETraversalEventType, EventType);
 /**
  * Input structure for the traversal chooser system that determines which traversal animations to play
  */
@@ -232,10 +240,6 @@ protected:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Traversal")
 	float MinFrontLedgeDepth{37.522631f};
 
-	/** Reference to the data table used for choosing traversal animations */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Traversal")
-	TObjectPtr<class UChooserTable> TraversalAnimationsChooserTable;
-
 	/**
 	 * Identifies front and back ledges of an obstacle from a hit result
 	 * @param HitResult The hit result from the initial obstacle detection
@@ -340,7 +344,10 @@ public:
 	UFUNCTION(BlueprintPure, Category="Traversal")
 	bool IsDoingTraversal() const;
 
+	UPROPERTY(BlueprintAssignable)
+	FOnTraversalEventDelegate OnTraversalEvent;
 private:
+
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AGASPCharacter> CharacterOwner{};
 

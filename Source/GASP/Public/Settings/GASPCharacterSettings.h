@@ -3,8 +3,10 @@
 #include "Engine/DataAsset.h"
 #include "GASPCharacterSettings.generated.h"
 
+class AGASPCharacter;
+class UChooserTable;
 /**
- * 
+ *
  */
 UCLASS(Blueprintable, BlueprintType, MinimalAPI)
 class UGASPCharacterSettings : public UDataAsset
@@ -33,9 +35,11 @@ public:
 	float AnalogMovementThreshold{.7f};
 
 	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
-	TObjectPtr<class UChooserTable> OverlayTable{nullptr};
+	TObjectPtr<UChooserTable> OverlayTable{nullptr};
 	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
 	TObjectPtr<UChooserTable> PosesTable{nullptr};
 	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
 	TObjectPtr<UChooserTable> RotationCurveTable{nullptr};
+	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
+	TObjectPtr<UChooserTable> TraversalTable{nullptr};
 };

@@ -7,7 +7,7 @@
 
 namespace MovementModeNames
 {
-	const FName Sliding = TEXT("Sliding");
+	const FName Sliding{TEXT("Sliding")};
 }
 
 /**

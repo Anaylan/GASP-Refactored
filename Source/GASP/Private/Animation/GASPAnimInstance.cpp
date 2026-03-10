@@ -228,7 +228,9 @@ void UGASPAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 	MovementMode.Update(CachedCharacter->GetMovementMode(), DeltaSeconds, .1f);
 	StanceMode.Update(InputState.Stance, DeltaSeconds, .1f);
 	MovementDirection.Update(InputState.MovementDirection, DeltaSeconds, .1f);
-
+	
+	LocomotionAction = CachedCharacter->GetLocomotionAction();
+	
 	RefreshEssentialValues(DeltaSeconds);
 	RefreshStateContainer();
 	RefreshTrajectory(DeltaSeconds);

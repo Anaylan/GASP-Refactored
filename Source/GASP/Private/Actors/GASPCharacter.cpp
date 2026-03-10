@@ -103,6 +103,11 @@ void AGASPCharacter::BeginPlay()
 		GetMesh()->AddTickPrerequisiteComponent(MoverComp);
 	}
 
+	if (GetMesh())
+	{
+		MeshRelativeTransformCache = GetMesh()->GetRelativeTransform();
+	}
+
 	OverlayContainerChanged.AddDynamic(this, &ThisClass::OnOverlayModeChanged);
 	PoseModeChanged.AddDynamic(this, &ThisClass::OnPoseModeChanged);
 

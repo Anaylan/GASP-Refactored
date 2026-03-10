@@ -10,6 +10,7 @@
 #include "Net/UnrealNetwork.h"
 #include "MovementSet/GASPMoverComponent.h"
 #include "DefaultMovementSet/LayeredMoves/AnimRootMotionLayeredMove.h"
+#include "Settings/GASPCharacterSettings.h"
 
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPTraversalComponent)
@@ -355,9 +356,12 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 
 	Context.AddStructParam(ChooserParameters);
 	Context.AddStructParam(ChooserOutput);
+
+	auto TraversalTable{CharacterOwner->GetSettings() ? CharacterOwner->GetSettings()->TraversalTable : nullptr};
 	auto AnimationMontage{
 		UChooserFunctionLibrary::EvaluateObjectChooserBase(
-			Context, UChooserFunctionLibrary::MakeEvaluateChooser(TraversalAnimationsChooserTable), UAnimMontage::StaticClass())
+			Context, UChooserFunctionLibrary::MakeEvaluateChooser(TraversalTable),
+			UAnimMontage::StaticClass())
 	};
 
 	NewTraversalCheckResult.ActionType = ChooserOutput.ActionType;
@@ -425,6 +429,8 @@ void UGASPTraversalComponent::OnCompleteTraversal(FName NotifyName)
 			: DefaultModeNames::Walking
 	};
 	MoverComponent->QueueNextMode(MovementMode);
+	
+	OnTraversalEvent.Broadcast(ETraversalEventType::Done);
 }
 
 void UGASPTraversalComponent::PerformTraversalAction_Implementation()
@@ -489,6 +495,8 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 	CapsuleComponent->IgnoreComponentWhenMoving(TraversalCheckResult.HitComponent, true);
 
 	MoverComponent->QueueNextMode(DefaultModeNames::Flying);
+	
+	OnTraversalEvent.Broadcast(ETraversalEventType::Triggered);
 }
 
 void UGASPTraversalComponent::Server_Traversal_Implementation(const FTraversalCheckResult TraversalRep)
