@@ -357,7 +357,7 @@ FTraversalResult UGASPTraversalComponent::TryTraversalAction(FTraversalCheckInpu
 	Context.AddStructParam(ChooserParameters);
 	Context.AddStructParam(ChooserOutput);
 
-	auto TraversalTable{CharacterOwner->GetSettings() ? CharacterOwner->GetSettings()->TraversalTable : nullptr};
+	auto TraversalTable{CharacterOwner->GetSettings() && CharacterOwner->GetSettings()->TraversalTable ? CharacterOwner->GetSettings()->TraversalTable.LoadSynchronous() : nullptr};
 	auto AnimationMontage{
 		UChooserFunctionLibrary::EvaluateObjectChooserBase(
 			Context, UChooserFunctionLibrary::MakeEvaluateChooser(TraversalTable),

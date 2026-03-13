@@ -5,11 +5,13 @@
 
 class AGASPCharacter;
 class UChooserTable;
+struct FStreamableHandle;
+
 /**
  *
  */
 UCLASS(Blueprintable, BlueprintType, MinimalAPI)
-class UGASPCharacterSettings : public UDataAsset
+class UGASPCharacterSettings : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 
@@ -35,11 +37,24 @@ public:
 	float AnalogMovementThreshold{.7f};
 
 	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
-	TObjectPtr<UChooserTable> OverlayTable{nullptr};
+	TSoftObjectPtr<UChooserTable> OverlayTable{nullptr};
 	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
-	TObjectPtr<UChooserTable> PosesTable{nullptr};
+	TSoftObjectPtr<UChooserTable> PosesTable{nullptr};
 	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
-	TObjectPtr<UChooserTable> RotationCurveTable{nullptr};
+	TSoftObjectPtr<UChooserTable> RotationCurveTable{nullptr};
 	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
-	TObjectPtr<UChooserTable> TraversalTable{nullptr};
+	TSoftObjectPtr<UChooserTable> TraversalTable{nullptr};
+	
+	virtual void PostLoad() override;
+
+	UFUNCTION(BlueprintCallable, Category = "Settings")
+	void PreloadTables();
+	
+	virtual FPrimaryAssetId GetPrimaryAssetId() const override
+	{
+		return FPrimaryAssetId(FPrimaryAssetType{TEXT("CharacterSettings")}, GetFName());
+	}
+
+private:
+	TSharedPtr<FStreamableHandle> TablesLoadHandle;
 };

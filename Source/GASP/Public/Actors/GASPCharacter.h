@@ -175,8 +175,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector2D TwinStickAimDirection{FVector2D::ZeroVector};
 
-	void SetSettings(UGASPCharacterSettings* const NewSettings);
-
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE UGASPCharacterSettings* GetSettings() const
 	{

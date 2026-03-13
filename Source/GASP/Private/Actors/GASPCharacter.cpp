@@ -70,9 +70,11 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 		Mesh->bAffectDynamicIndirectLighting = true;
 		Mesh->PrimaryComponentTick.TickGroup = TG_PrePhysics;
 		Mesh->SetupAttachment(CapsuleComponent);
+		
 		static FName MeshCollisionProfileName(TEXT("NoCollision"));
 		Mesh->SetCollisionProfileName(MeshCollisionProfileName);
 		Mesh->SetCollisionEnabled(ECollisionEnabled::ProbeOnly);
+		Mesh->SetCollisionObjectType(ECC_Pawn);
 		Mesh->SetGenerateOverlapEvents(false);
 		Mesh->SetCanEverAffectNavigation(false);
 
@@ -118,7 +120,7 @@ void AGASPCharacter::BeginPlay()
 
 	MoverInputs_PreSim.OrientationIntent = GetActorForwardVector();
 
-	ensureAlwaysMsgf(Settings->RotationCurveTable,
+	ensureAlwaysMsgf(Settings->RotationCurveTable.IsValid(),
 	                 TEXT("RotationCurveTable must be configured in character blueprint"));
 }
 
@@ -398,10 +400,10 @@ void AGASPCharacter::GetMovementDirectionAddOffset(EMovementDirection& MovementD
 			                    MovementAngle)
 		                    : EMovementDirection::F;
 
-	if (Settings->RotationCurveTable)
+	if (const auto RotationCurveTable{Settings->RotationCurveTable.LoadSynchronous()})
 	{
 		if (const auto* RotationCurve = static_cast<UCurveFloat*>(UChooserFunctionLibrary::EvaluateChooser(
-			this, Settings->RotationCurveTable, UCurveFloat::StaticClass())))
+			this, RotationCurveTable, UCurveFloat::StaticClass())))
 		{
 			RotationOffset = RotationCurve->GetFloatValue(MovementAngle);
 		}
@@ -583,14 +585,6 @@ void AGASPCharacter::UpdateNavigationRelevance()
 	}
 }
 
-void AGASPCharacter::SetSettings(UGASPCharacterSettings* const NewSettings)
-{
-	if (NewSettings != Settings)
-	{
-		Settings = NewSettings;
-	}
-}
-
 FTraversalResult AGASPCharacter::TryTraversalAction() const
 {
 	if (IsValid(TraversalComponent))
@@ -658,13 +652,13 @@ void AGASPCharacter::OnPoseModeChanged_Implementation(const FGameplayTag OldPose
 	StateContainer.RemoveTag(OldPoseMode);
 	StateContainer.AddTag(NewPoseMode);
 
-	LinkAnimInstance(Settings->PosesTable);
+	LinkAnimInstance(Settings->PosesTable.LoadSynchronous());
 }
 
 void AGASPCharacter::OnOverlayModeChanged_Implementation(const FGameplayTagContainer OldOverlayMode,
                                                          const FGameplayTagContainer NewOverlayMode)
 {
-	LinkAnimInstance(Settings->OverlayTable);
+	LinkAnimInstance(Settings->OverlayTable.LoadSynchronous());
 }
 
 void AGASPCharacter::OnRep_OverlayMode(const FGameplayTagContainer& OldOverlayMode)
