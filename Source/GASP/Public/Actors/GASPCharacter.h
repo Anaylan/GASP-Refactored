@@ -46,7 +46,7 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 	FGameplayTagContainer OverlayTagContainer{};
 
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Settings")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_Settings, Category = "Settings")
 	TObjectPtr<UGASPCharacterSettings> Settings;
 
 	UPROPERTY(BlueprintReadOnly)
@@ -326,6 +326,8 @@ private:
 	virtual void OnRep_AllowedMovementMode(const FGameplayTag& OldMovementMode);
 	UFUNCTION()
 	virtual void OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAction);
+	UFUNCTION()
+	virtual void OnRep_Settings();
 
 public:
 	bool IsRagdollingAllowedToStop() const;

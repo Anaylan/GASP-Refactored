@@ -728,3 +728,7 @@ void AGASPCharacter::SetStanceMode(const FGameplayTag NewStanceMode, const bool 
 		StanceModeChanged.Broadcast(OldStanceMode, AllowedStanceMode);
 	}
 }
+
+void AGASPCharacter::OnRep_Settings()
+{
+}
