@@ -10,8 +10,8 @@ struct FStreamableHandle;
 /**
  *
  */
-UCLASS(Blueprintable, BlueprintType, MinimalAPI)
-class UGASPCharacterSettings : public UPrimaryDataAsset
+UCLASS(Blueprintable, BlueprintType)
+class GASP_API UGASPCharacterSettings : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 
