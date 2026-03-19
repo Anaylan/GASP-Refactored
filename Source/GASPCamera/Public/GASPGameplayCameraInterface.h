@@ -2,6 +2,7 @@
 
 #include "GameplayTagContainer.h"
 #include "NativeGameplayTags.h"
+#include "StructUtils/InstancedStruct.h"
 #include "GASPGameplayCameraInterface.generated.h"
 
 class UCameraRigAsset;
@@ -27,8 +28,11 @@ struct FCameraProperties
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite)
 	FGameplayTagContainer GameplayTags{};
+	
+	UPROPERTY(BlueprintReadWrite)
+	FInstancedStruct Payload{};
 };
 
 /**
