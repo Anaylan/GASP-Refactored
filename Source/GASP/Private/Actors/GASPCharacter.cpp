@@ -70,7 +70,7 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 		Mesh->bAffectDynamicIndirectLighting = true;
 		Mesh->PrimaryComponentTick.TickGroup = TG_PrePhysics;
 		Mesh->SetupAttachment(CapsuleComponent);
-		
+
 		static FName MeshCollisionProfileName(TEXT("NoCollision"));
 		Mesh->SetCollisionProfileName(MeshCollisionProfileName);
 		Mesh->SetCollisionEnabled(ECollisionEnabled::ProbeOnly);
@@ -516,11 +516,23 @@ FVector AGASPCharacter::GetOrientationIntent()
 
 FRotator AGASPCharacter::GetAimingRotation()
 {
+	if (auto* Target{Execute_GetTargetedActor(this)})
+	{
+		return FVector{Target->GetActorLocation() - GetActorLocation()}.ToOrientationRotator();
+	}
+
 	return TwinStickMode ? TwinStickAimRotation : GetControlRotation();
 }
 
 FGameplayTag AGASPCharacter::GetAllowedRotationMode()
 {
+	if (Execute_GetTargetedActor(this))
+	{
+		return PlayerInputState.Get<FGASPInputState>().DesiredRotationMode == RotationTags::Aim
+			       ? RotationTags::Aim
+			       : RotationTags::Strafe;
+	}
+	
 	if (TwinStickMode)
 	{
 		if (!TwinStickAimDirection.IsZero())

@@ -3,6 +3,7 @@
 #include "GameplayTagContainer.h"
 #include "Types/EnumTypes.h"
 #include "MoverSimulationTypes.h"
+#include "Interfaces/GASPTargetedActor.h"
 #include "StructUtils/InstancedStruct.h"
 #include "Types/MovementTypes.h"
 #include "Types/TagTypes.h"
@@ -21,7 +22,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnGameplayTagContainerChanged, FGa
                                              OldGameplayTagContainer, FGameplayTagContainer, NewGameplayTagContainer);
 
 UCLASS()
-class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterface
+class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterface, public IGASPTargetedActor
 {
 	GENERATED_BODY()
 
@@ -100,7 +101,7 @@ protected:
 
 	// Entry point for input production.
 	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
-
+	
 	UPROPERTY(BlueprintReadOnly)
 	float ControlRotationRate{0.f};
 	UPROPERTY(BlueprintReadOnly)
