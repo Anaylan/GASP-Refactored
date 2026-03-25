@@ -640,23 +640,19 @@ FTraversalCheckInputs AGASPCharacter::GetTraversalCheckInputs() const
 	};
 }
 
-void AGASPCharacter::LinkAnimInstance(const UChooserTable* DataTable) const
+TSubclassOf<UAnimInstance> AGASPCharacter::GetLinkedAnimLayer(const UChooserTable* DataTable) const
 {
-	if (!DataTable || !GetMesh())
+	if (!DataTable)
 	{
-		return;
+		return nullptr;
 	}
 
-	auto* MeshComponent = GetMesh();
 	const auto* DataAsset{
 		static_cast<UGASPLinkedAnimInstanceSet*>(UChooserFunctionLibrary::EvaluateChooser(
 			this, DataTable, UGASPLinkedAnimInstanceSet::StaticClass()))
 	};
 
-	if (IsValid(DataAsset))
-	{
-		MeshComponent->LinkAnimClassLayers(DataAsset->GetAnimInstance());
-	}
+	return DataAsset->GetAnimInstance();
 }
 
 void AGASPCharacter::OnPoseModeChanged_Implementation(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode)
@@ -664,13 +660,19 @@ void AGASPCharacter::OnPoseModeChanged_Implementation(const FGameplayTag OldPose
 	StateContainer.RemoveTag(OldPoseMode);
 	StateContainer.AddTag(NewPoseMode);
 
-	LinkAnimInstance(Settings->PosesTable.LoadSynchronous());
+	if (const auto LinkedAnimInstance{GetLinkedAnimLayer(Settings->PosesTable.LoadSynchronous())})
+	{
+		GetMesh()->LinkAnimClassLayers(LinkedAnimInstance);
+	}
 }
 
 void AGASPCharacter::OnOverlayModeChanged_Implementation(const FGameplayTagContainer OldOverlayMode,
                                                          const FGameplayTagContainer NewOverlayMode)
 {
-	LinkAnimInstance(Settings->OverlayTable.LoadSynchronous());
+	if (const auto LinkedAnimInstance{GetLinkedAnimLayer(Settings->OverlayTable.LoadSynchronous())})
+	{
+		GetMesh()->LinkAnimClassLayers(LinkedAnimInstance);
+	}
 }
 
 void AGASPCharacter::OnRep_OverlayMode(const FGameplayTagContainer& OldOverlayMode)

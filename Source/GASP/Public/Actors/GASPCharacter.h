@@ -215,7 +215,7 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode);
 
-	void LinkAnimInstance(const class UChooserTable* DataTable) const;
+	TSubclassOf<UAnimInstance> GetLinkedAnimLayer(const class UChooserTable* DataTable) const;
 
 	// Sets default values for this character's properties
 	explicit AGASPCharacter(const FObjectInitializer& ObjectInitializer);
