@@ -3,42 +3,6 @@
 #include "GameplayTags.h"
 #include "StructTypes.generated.h"
 
-template <typename T>
-struct TStateWrapper
-{
-	T Current{};
-	T LastFrame{};
-	T Recent{};
-
-	float TimeInState{0.0f};
-	float LastStateTime{0.0f};
-
-	explicit TStateWrapper(T DefaultState)
-	{
-		Current = LastFrame = Recent = DefaultState;
-	}
-
-	void Update(const T& NewState, const float DeltaTime, const float RecentLimit)
-	{
-		LastFrame = Current;
-		Current = NewState;
-
-		if (Current != LastFrame)
-		{
-			LastStateTime = TimeInState;
-			TimeInState = 0.0f;
-		}
-		else
-		{
-			TimeInState += DeltaTime;
-			if (TimeInState >= RecentLimit)
-			{
-				Recent = Current;
-			}
-		}
-	}
-};
-
 USTRUCT(BlueprintType)
 struct FAnimConfiguration
 {
@@ -236,8 +200,9 @@ USTRUCT(BlueprintType)
 struct GASP_API FGASPControlRigInput
 {
 	GENERATED_BODY()
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "", Meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "",
+		Meta = (ClampMin = -180, ClampMax = 180, ForceUnits = "deg"))
 	float SpineYawAngle{0.0f};
 };
 

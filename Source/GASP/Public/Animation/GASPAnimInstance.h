@@ -27,6 +27,8 @@ class GASP_API UGASPAnimInstance : public UAnimInstance
 {
 	GENERATED_BODY()
 
+	friend UChooserTable;
+	
 public:
 	UGASPAnimInstance() = default;
 
@@ -222,12 +224,71 @@ protected:
 	FGameplayTagContainer RecentStateContainer{};
 
 	// State Wrappers
-	TStateWrapper<FGameplayTag> Gait{GaitTags::Run};
-	TStateWrapper<FGameplayTag> MovementState{MovementStateTags::Idle};
-	TStateWrapper<FGameplayTag> RotationMode{RotationTags::OrientToMovement};
-	TStateWrapper<FGameplayTag> MovementMode{MovementModeTags::Grounded};
-	TStateWrapper<FGameplayTag> StanceMode{StanceTags::Standing};
-	TStateWrapper<EMovementDirection> MovementDirection{EMovementDirection::F};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	EMovementDirection MovementDirection_Current{};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	EMovementDirection MovementDirection_LastFrame{};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	EMovementDirection MovementDirection_Recent{};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float MovementDirection_TimeInState{0.f};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float MovementDirection_LastStateTime{0.f};
+	
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag Gait_Current{GaitTags::Run};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag Gait_LastFrame{GaitTags::Run};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag Gait_Recent{GaitTags::Run};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float Gait_TimeInState{0.f};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float Gait_LastStateTime{0.f};
+	
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag MovementState_Current{MovementStateTags::Idle};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag MovementState_LastFrame{MovementStateTags::Idle};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag MovementState_Recent{MovementStateTags::Idle};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float MovementState_TimeInState{0.f};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float MovementState_LastStateTime{0.f};
+	
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag RotationMode_Current{RotationTags::OrientToMovement};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag RotationMode_LastFrame{RotationTags::OrientToMovement};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag RotationMode_Recent{RotationTags::OrientToMovement};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float RotationMode_TimeInState{0.f};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float RotationMode_LastStateTime{0.f};
+	
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag MovementMode_Current{MovementModeTags::Grounded};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag MovementMode_LastFrame{MovementModeTags::Grounded};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag MovementMode_Recent{MovementModeTags::Grounded};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float MovementMode_TimeInState{0.f};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float MovementMode_LastStateTime{0.f};
+	
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag StanceMode_Current{StanceTags::Standing};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag StanceMode_LastFrame{StanceTags::Standing};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	FGameplayTag StanceMode_Recent{StanceTags::Standing};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float StanceMode_TimeInState{0.f};
+	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
+	float StanceMode_LastStateTime{0.f};
 
 	// --- Motion Matching & Trajectory Data ---
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PoseSearchData|Choosers")
@@ -289,97 +350,97 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "StateMachine", Transient)
 	bool bNoValidAnim{true};
 
-public:
-	UFUNCTION(BlueprintGetter, Category = "Movement|Analysis", meta = (BlueprintThreadSafe))
+		UFUNCTION(BlueprintGetter, Category = "Movement|Analysis", meta = (BlueprintThreadSafe))
 	FORCEINLINE FCharacterInfo GetCharacterInfo() const { return CharacterInfo; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetGait() const { return Gait.Current; }
+	FORCEINLINE FGameplayTag GetGait() const { return Gait_Current; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetPreviousGait() const { return Gait.LastFrame; }
+	FORCEINLINE FGameplayTag GetPreviousGait() const { return Gait_LastFrame; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetRecentGait() const { return Gait.Recent; }
+	FORCEINLINE FGameplayTag GetRecentGait() const { return Gait_Recent; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetGaitTime() const { return Gait.TimeInState; }
+	FORCEINLINE float GetGaitTime() const { return Gait_TimeInState; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetGaitLastTime() const { return Gait.LastStateTime; }
+	FORCEINLINE float GetGaitLastTime() const { return Gait_LastStateTime; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetStanceMode() const { return StanceMode.Current; }
+	FORCEINLINE FGameplayTag GetStanceMode() const { return StanceMode_Current; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetPreviousStanceMode() const { return StanceMode.LastFrame; }
+	FORCEINLINE FGameplayTag GetPreviousStanceMode() const { return StanceMode_LastFrame; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetRecentStanceMode() const { return StanceMode.Recent; }
+	FORCEINLINE FGameplayTag GetRecentStanceMode() const { return StanceMode_Recent; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetStanceModeTime() const { return StanceMode.TimeInState; }
+	FORCEINLINE float GetStanceModeTime() const { return StanceMode_TimeInState; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetStanceModeLastTime() const { return StanceMode.LastStateTime; }
+	FORCEINLINE float GetStanceModeLastTime() const { return StanceMode_LastStateTime; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetMovementState() const { return MovementState.Current; }
+	FORCEINLINE FGameplayTag GetMovementState() const { return MovementState_Current; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetPreviousMovementState() const { return MovementState.LastFrame; }
+	FORCEINLINE FGameplayTag GetPreviousMovementState() const { return MovementState_LastFrame; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetRecentMovementState() const { return MovementState.Recent; }
+	FORCEINLINE FGameplayTag GetRecentMovementState() const { return MovementState_Recent; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetMovementStateTime() const { return MovementState.TimeInState; }
+	FORCEINLINE float GetMovementStateTime() const { return MovementState_TimeInState; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetMovementStateLastTime() const { return MovementState.LastStateTime; }
+	FORCEINLINE float GetMovementStateLastTime() const { return MovementState_LastStateTime; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetRotationMode() const { return RotationMode.Current; }
+	FORCEINLINE FGameplayTag GetRotationMode() const { return RotationMode_Current; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetPreviousRotationMode() const { return RotationMode.LastFrame; }
+	FORCEINLINE FGameplayTag GetPreviousRotationMode() const { return RotationMode_LastFrame; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetRecentRotationMode() const { return RotationMode.Recent; }
+	FORCEINLINE FGameplayTag GetRecentRotationMode() const { return RotationMode_Recent; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetRotationModeTime() const { return RotationMode.TimeInState; }
+	FORCEINLINE float GetRotationModeTime() const { return RotationMode_TimeInState; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetRotationModeLastTime() const { return RotationMode.LastStateTime; }
+	FORCEINLINE float GetRotationModeLastTime() const { return RotationMode_LastStateTime; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetMovementMode() const { return MovementMode.Current; }
+	FORCEINLINE FGameplayTag GetMovementMode() const { return MovementMode_Current; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetPreviousMovementMode() const { return MovementMode.LastFrame; }
+	FORCEINLINE FGameplayTag GetPreviousMovementMode() const { return MovementMode_LastFrame; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE FGameplayTag GetRecentMovementMode() const { return MovementMode.Recent; }
+	FORCEINLINE FGameplayTag GetRecentMovementMode() const { return MovementMode_Recent; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetMovementModeTime() const { return MovementMode.TimeInState; }
+	FORCEINLINE float GetMovementModeTime() const { return MovementMode_TimeInState; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetMovementModeLastTime() const { return MovementMode.LastStateTime; }
+	FORCEINLINE float GetMovementModeLastTime() const { return MovementMode_LastStateTime; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE EMovementDirection GetMovementDirection() const { return MovementDirection.Current; }
-
+	FORCEINLINE EMovementDirection GetMovementDirection() const { return MovementDirection_Current; }
+	
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE EMovementDirection GetPreviousMovementDirection() const { return MovementDirection.LastFrame; }
-
+	FORCEINLINE EMovementDirection GetPreviousMovementDirection() const { return MovementDirection_LastFrame; }
+	
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE EMovementDirection GetRecentMovementDirection() const { return MovementDirection.Recent; }
-
+	FORCEINLINE EMovementDirection GetRecentMovementDirection() const { return MovementDirection_Recent; }
+	
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetMovementDirectionTime() const { return MovementDirection.TimeInState; }
-
+	FORCEINLINE float GetMovementDirectionTime() const { return MovementDirection_TimeInState; }
+	
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
-	FORCEINLINE float GetMovementDirectionLastTime() const { return MovementDirection.LastStateTime; }
+	FORCEINLINE float GetMovementDirectionLastTime() const { return MovementDirection_LastStateTime; }
+	
 };

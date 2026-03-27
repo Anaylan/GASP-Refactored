@@ -22,9 +22,9 @@ enum class EMovementDirection : uint8
 	F UMETA(DisplayName = "Forward"),
 	B UMETA(DisplayName = "Backward"),
 	LL UMETA(DisplayName = "Left"),
-	LR UMETA(DisplayName = "Left->Right"),
-	RL UMETA(DisplayName = "Right->Left"),
+	FL UMETA(DisplayName = "Forward->Left"),
 	RR UMETA(DisplayName = "Right"),
+	FR UMETA(DisplayName = "Forward->Right"),
 };
 
 UENUM(BlueprintType, meta = (ScriptName = "EMovementDirectionBias"))
@@ -77,20 +77,4 @@ enum class ETraversalBlendOutCondition : uint8
 	ForceBlendOut UMETA(DisplayName = "Force Blend Out"),
 	WithMovementInput UMETA(DisplayName = "With Movement Input"),
 	IfFalling UMETA(DisplayName = "If Falling")
-};
-
-UENUM(BlueprintType, meta = (ScriptName = "EAnalogStickBehaviorMode"))
-enum class EAnalogStickBehaviorMode : uint8
-{
-	FixedSingleGait UMETA(DisplayName = "Fixed Speed - Single Gait",
-		Description = "Character will move at a fixed speed regardless of stick deflection."),
-	FixedWalkRun UMETA(DisplayName = "Fixed Speed - Walk / Run",
-		Description =
-		"Character will move at a fixed walking speed with slight stick deflection, and a fixed running speed at full stick deflection."),
-	VariableSingleGait UMETA(DisplayName = "Variable Speed - Single Gait",
-		Description =
-		"Full analog movement control with stick, character will remain walking or running based on gait input."),
-	VariableWalkRun UMETA(DisplayName = "Variable Speed - Walk / Run",
-		Description =
-		"Full analog movement control with stick, character will switch from walk to run gait based on stick deflection."),
 };

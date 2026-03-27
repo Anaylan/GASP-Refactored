@@ -13,6 +13,34 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPAnimInstance)
 
+#define UPDATE_STATE(Prefix, NewValue, DeltaTime, RecentLimit) \
+{ \
+Prefix##_LastFrame = Prefix##_Current; \
+Prefix##_Current = (NewValue); \
+if (Prefix##_Current != Prefix##_LastFrame) \
+{ \
+Prefix##_LastStateTime = Prefix##_TimeInState; \
+Prefix##_TimeInState = 0.0f; \
+} \
+else \
+{ \
+Prefix##_TimeInState += (DeltaTime); \
+if (Prefix##_TimeInState >= (RecentLimit)) \
+{ \
+Prefix##_Recent = Prefix##_Current; \
+} \
+} \
+}
+
+#define ADD_STATE_TAGS(Container, Suffix) \
+{ \
+Container.AddTag(MovementMode_##Suffix); \
+Container.AddTag(Gait_##Suffix); \
+Container.AddTag(MovementState_##Suffix); \
+Container.AddTag(RotationMode_##Suffix); \
+Container.AddTag(StanceMode_##Suffix); \
+}
+
 namespace AnimVars
 {
 	int32 LocomotionSetup{1};
@@ -40,10 +68,10 @@ namespace AnimVars
 
 EPoseSearchInterruptMode UGASPAnimInstance::GetMatchingInterruptMode() const
 {
-	return MovementMode.Current != MovementMode.LastFrame || MovementMode.Current == MovementModeTags::Grounded && (
-		       MovementState.Current != MovementState.LastFrame || (Gait.Current != Gait.LastFrame && MovementState.
-			       Current == MovementStateTags::Moving) || StanceMode.Current != StanceMode.LastFrame) || (
-		       MovementDirection.Current != MovementDirection.LastFrame && MovementState.Current ==
+	return MovementMode_Current != MovementMode_LastFrame || MovementMode_Current == MovementModeTags::Grounded && (
+		       MovementState_Current != MovementState_LastFrame || (Gait_Current != Gait_LastFrame &&
+			       MovementState_Current == MovementStateTags::Moving) || StanceMode_Current != StanceMode_LastFrame) ||
+	       (MovementDirection_Current != MovementDirection_LastFrame && MovementState_Current ==
 		       MovementStateTags::Moving)
 		       ? EPoseSearchInterruptMode::InterruptOnDatabaseChange
 		       : EPoseSearchInterruptMode::DoNotInterrupt;
@@ -66,14 +94,14 @@ EOffsetRootBoneMode UGASPAnimInstance::GetOffsetRootTranslationMode() const
 		return EOffsetRootBoneMode::Release;
 	}
 
-	return MovementMode.Current == MovementModeTags::Grounded && MovementState.Current == MovementStateTags::Moving
+	return MovementMode_Current == MovementModeTags::Grounded && MovementState_Current == MovementStateTags::Moving
 		       ? EOffsetRootBoneMode::Interpolate
 		       : EOffsetRootBoneMode::Release;
 }
 
 float UGASPAnimInstance::GetOffsetRootTranslationHalfLife() const
 {
-	return MovementState.Current == MovementStateTags::Moving ? .3f : .1f;
+	return MovementState_Current == MovementStateTags::Moving ? .3f : .1f;
 }
 
 EOrientationWarpingSpace UGASPAnimInstance::GetOrientationWarpingSpace() const
@@ -85,7 +113,7 @@ EOrientationWarpingSpace UGASPAnimInstance::GetOrientationWarpingSpace() const
 
 float UGASPAnimInstance::GetAOYaw() const
 {
-	return RotationMode.Current == RotationTags::OrientToMovement ? 0.f : GetAOValue().X;
+	return RotationMode_Current == RotationTags::OrientToMovement ? 0.f : GetAOValue().X;
 }
 
 FTransform UGASPAnimInstance::GetHandIKTransform(const FName HandIKSocketName, const FName ObjectIKSocketName,
@@ -121,8 +149,8 @@ FGASPControlRigInput UGASPAnimInstance::GetControlRigInputs() const
 
 bool UGASPAnimInstance::IsEnableSteering() const
 {
-	return ((BlendStackInputs.bLoop || BlendStack.bActive) && IsMoving()) || MovementMode.Current ==
-		MovementModeTags::InAir || MovementMode.Current == MovementModeTags::Slide;
+	return ((BlendStackInputs.bLoop || BlendStack.bActive) && IsMoving()) || MovementMode_Current ==
+		MovementModeTags::InAir || MovementMode_Current == MovementModeTags::Slide;
 }
 
 bool UGASPAnimInstance::JustTeleported() const
@@ -134,12 +162,12 @@ bool UGASPAnimInstance::JustTeleported() const
 
 bool UGASPAnimInstance::AllowFootPinning() const
 {
-	return MovementMode.Current == MovementModeTags::Grounded;
+	return MovementMode_Current == MovementModeTags::Grounded;
 }
 
 bool UGASPAnimInstance::AllowSlopeWarping() const
 {
-	return MovementMode.Current == MovementModeTags::Grounded || MovementMode.Current == MovementModeTags::Slide;
+	return MovementMode_Current == MovementModeTags::Grounded || MovementMode_Current == MovementModeTags::Slide;
 }
 
 void UGASPAnimInstance::NativeBeginPlay()
@@ -222,15 +250,15 @@ void UGASPAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 	const auto& InputState{CachedCharacter->GetMoverState()};
 	const auto NewGait{InputState.Gait == GaitTags::Sprint && IsCircling() ? GaitTags::Run : InputState.Gait};
 
-	Gait.Update(NewGait, DeltaSeconds, .1f);
-	RotationMode.Update(InputState.RotationMode, DeltaSeconds, .1f);
-	MovementState.Update(IsMoving() ? MovementStateTags::Moving : MovementStateTags::Idle, DeltaSeconds, .1f);
-	MovementMode.Update(CachedCharacter->GetMovementMode(), DeltaSeconds, .1f);
-	StanceMode.Update(InputState.Stance, DeltaSeconds, .1f);
-	MovementDirection.Update(InputState.MovementDirection, DeltaSeconds, .1f);
-	
+	UPDATE_STATE(Gait, NewGait, DeltaSeconds, .1f)
+	UPDATE_STATE(RotationMode, InputState.RotationMode, DeltaSeconds, .1f)
+	UPDATE_STATE(MovementState, IsMoving() ? MovementStateTags::Moving : MovementStateTags::Idle, DeltaSeconds, .1f)
+	UPDATE_STATE(MovementMode, CachedCharacter->GetMovementMode(), DeltaSeconds, .1f)
+	UPDATE_STATE(StanceMode, InputState.Stance, DeltaSeconds, .1f)
+	UPDATE_STATE(MovementDirection, InputState.MovementDirection, DeltaSeconds, .1f)
+
 	LocomotionAction = CachedCharacter->GetLocomotionAction();
-	
+
 	RefreshEssentialValues(DeltaSeconds);
 	RefreshStateContainer();
 	RefreshTrajectory(DeltaSeconds);
@@ -305,10 +333,10 @@ void UGASPAnimInstance::RefreshTrajectory(const float DeltaSeconds)
 	TrajectoryInfo.PreviousFutureFacingDelta = TrajectoryInfo.FutureFacingDelta;
 	TrajectoryInfo.FutureFacingDelta = GetTotalFacingDelta({0.f, 0.25f, 0.75f, 1.5f});
 
-	if (FMath::Abs(TrajectoryInfo.FutureFacingDelta - TrajectoryInfo.PreviousFutureFacingDelta) > 200.f && RotationMode.
-		Current != RotationTags::OrientToMovement)
+	if (FMath::Abs(TrajectoryInfo.FutureFacingDelta - TrajectoryInfo.PreviousFutureFacingDelta) > 200.f &&
+		RotationMode_Current != RotationTags::OrientToMovement)
 	{
-		MovementDirection.Current = MovementDirection.Recent = EMovementDirection::B;
+		MovementDirection_Current = MovementDirection_Recent = EMovementDirection::B;
 	}
 
 	UPoseSearchTrajectoryLibrary::GetTransformTrajectoryAngularVelocity(
@@ -344,38 +372,24 @@ void UGASPAnimInstance::RefreshStateContainer()
 	PreviousStateContainer.Reset();
 	StateContainer.Reset();
 
-	RecentStateContainer.AddTag(MovementMode.Recent);
-	RecentStateContainer.AddTag(Gait.Recent);
-	RecentStateContainer.AddTag(MovementState.Recent);
-	RecentStateContainer.AddTag(RotationMode.Recent);
-	RecentStateContainer.AddTag(StanceMode.Recent);
-
-	PreviousStateContainer.AddTag(MovementMode.LastFrame);
-	PreviousStateContainer.AddTag(Gait.LastFrame);
-	PreviousStateContainer.AddTag(MovementState.LastFrame);
-	PreviousStateContainer.AddTag(RotationMode.LastFrame);
-	PreviousStateContainer.AddTag(StanceMode.LastFrame);
-
-	StateContainer.AddTag(MovementMode.Current);
-	StateContainer.AddTag(Gait.Current);
-	StateContainer.AddTag(MovementState.Current);
-	StateContainer.AddTag(RotationMode.Current);
-	StateContainer.AddTag(StanceMode.Current);
+	ADD_STATE_TAGS(RecentStateContainer, Recent)
+	ADD_STATE_TAGS(PreviousStateContainer, LastFrame)
+	ADD_STATE_TAGS(StateContainer, Current)
 }
 
 float UGASPAnimInstance::GetMatchingBlendTime() const
 {
-	if (MovementMode.Current == MovementModeTags::InAir)
+	if (MovementMode_Current == MovementModeTags::InAir)
 	{
 		return CharacterInfo.Velocity.Z > 100.f ? .15f : .5f;
 	}
 
-	return MovementMode.LastFrame == MovementModeTags::Grounded ? .5f : .2f;
+	return MovementMode_LastFrame == MovementModeTags::Grounded ? .5f : .2f;
 }
 
 FFloatInterval UGASPAnimInstance::GetMatchingPlayRate() const
 {
-	if (MovementMode.Current == MovementModeTags::Grounded)
+	if (MovementMode_Current == MovementModeTags::Grounded)
 	{
 		return {.75f, 3.f};
 	}
@@ -412,7 +426,7 @@ FRotator UGASPAnimInstance::GetSlideSlopeRotation() const
 
 float UGASPAnimInstance::GetMatchingNotifyRecencyTimeOut() const
 {
-	if (Gait.Current == GaitTags::Sprint)
+	if (Gait_Current == GaitTags::Sprint)
 	{
 		return .16f;
 	}
@@ -440,37 +454,37 @@ bool UGASPAnimInstance::IsPivoting() const
 {
 	if (LocomotionSetup == 0)
 	{
-		return FMath::Abs(GetTrajectoryTurnAngle()) >= 75.f && !IsCircling() && MovementState.Current ==
+		return FMath::Abs(GetTrajectoryTurnAngle()) >= 75.f && !IsCircling() && MovementState_Current ==
 			MovementStateTags::Moving;
 	}
 
 	float MinSpeed{175.f}, MaxSpeed{600.f}, AngleThreshold{75.f};
 
-	if (StanceMode.Current == StanceTags::Crouching)
+	if (StanceMode_Current == StanceTags::Crouching)
 	{
 		MinSpeed = 50.f;
 		MaxSpeed = 200.f;
 	}
-	else if (Gait.Current == GaitTags::Sprint)
+	else if (Gait_Current == GaitTags::Sprint)
 	{
 		MinSpeed = 200.f;
 		MaxSpeed = 700.f;
 		AngleThreshold = 60.f;
 	}
-	else if (Gait.Current == GaitTags::Walk)
+	else if (Gait_Current == GaitTags::Walk)
 	{
 		MinSpeed = 50.f;
 		MaxSpeed = 300.f;
 	}
 
-	if (Gait.Current != GaitTags::Sprint && (MovementMode.Recent == MovementModeTags::InAir || MovementMode.Recent ==
+	if (Gait_Current != GaitTags::Sprint && (MovementMode_Recent == MovementModeTags::InAir || MovementMode_Recent ==
 		MovementModeTags::Slide))
 	{
 		AngleThreshold = 100.f;
 	}
 
 	return FMath::Abs(GetTrajectoryTurnAngle()) >= AngleThreshold && FMath::IsWithinInclusive(
-		CharacterInfo.Speed, MinSpeed, MaxSpeed) && MovementState.Current == MovementStateTags::Moving;
+		CharacterInfo.Speed, MinSpeed, MaxSpeed) && MovementState_Current == MovementStateTags::Moving;
 }
 
 bool UGASPAnimInstance::IsMoving() const
@@ -481,7 +495,7 @@ bool UGASPAnimInstance::IsMoving() const
 bool UGASPAnimInstance::ShouldTurnInPlace() const
 {
 	return CharacterInfo.Speed < 50.f && FMath::Abs(TrajectoryInfo.FutureFacingDelta) >= AnimConfiguration.
-		MaxTurnInPlaceAngle && MovementState.Current == MovementStateTags::Idle;
+		MaxTurnInPlaceAngle && MovementState_Current == MovementStateTags::Idle;
 }
 
 bool UGASPAnimInstance::ShouldSpinTransition() const
@@ -492,14 +506,14 @@ bool UGASPAnimInstance::ShouldSpinTransition() const
 
 bool UGASPAnimInstance::JustLanded_Light() const
 {
-	return FMath::Abs(PreviousCharacterInfo.Velocity.Z) < FMath::Abs(HeavyLandSpeedThreshold) && MovementMode.Current
-		== MovementModeTags::Grounded && MovementMode.LastFrame == MovementModeTags::InAir;
+	return FMath::Abs(PreviousCharacterInfo.Velocity.Z) < FMath::Abs(HeavyLandSpeedThreshold) && MovementMode_Current
+		== MovementModeTags::Grounded && MovementMode_LastFrame == MovementModeTags::InAir;
 }
 
 bool UGASPAnimInstance::JustLanded_Heavy() const
 {
-	return FMath::Abs(PreviousCharacterInfo.Velocity.Z) >= FMath::Abs(HeavyLandSpeedThreshold) && MovementMode.Current
-		== MovementModeTags::Grounded && MovementMode.LastFrame == MovementModeTags::InAir;
+	return FMath::Abs(PreviousCharacterInfo.Velocity.Z) >= FMath::Abs(HeavyLandSpeedThreshold) && MovementMode_Current
+		== MovementModeTags::Grounded && MovementMode_LastFrame == MovementModeTags::InAir;
 }
 
 bool UGASPAnimInstance::JustTraversed() const
@@ -510,13 +524,13 @@ bool UGASPAnimInstance::JustTraversed() const
 
 bool UGASPAnimInstance::PlayLand() const
 {
-	return MovementMode.Current == MovementModeTags::Grounded && MovementMode.LastFrame ==
+	return MovementMode_Current == MovementModeTags::Grounded && MovementMode_LastFrame ==
 		MovementModeTags::InAir;
 }
 
 bool UGASPAnimInstance::PlayMovingLand() const
 {
-	return MovementMode.Current == MovementModeTags::Grounded && MovementMode.LastFrame ==
+	return MovementMode_Current == MovementModeTags::Grounded && MovementMode_LastFrame ==
 		MovementModeTags::InAir &&
 		FMath::Abs(GetTrajectoryTurnAngle()) <= 120.f;
 }
@@ -545,15 +559,15 @@ FVector2D UGASPAnimInstance::GetLeanAmount() const
 		FMath::GetMappedRangeValueClamped<float, float>({200.f, 320.f}, {500.f, 800.f}, CharacterInfo.Speed), -1.f,
 		1.f);
 
-	switch (MovementDirection.Current)
+	switch (MovementDirection_Current)
 	{
 	case EMovementDirection::B:
 		return {LateralAccelerationAmount * -1.f, 0.f};
 	case EMovementDirection::LL:
-	case EMovementDirection::LR:
+	case EMovementDirection::FL:
 		return {0.f, LateralAccelerationAmount};
+	case EMovementDirection::FR:
 	case EMovementDirection::RR:
-	case EMovementDirection::RL:
 		return {0.f, LateralAccelerationAmount * -1.f};
 	default:
 		return {LateralAccelerationAmount, 0.f};
@@ -699,7 +713,7 @@ void UGASPAnimInstance::RefreshEssentialValues(const float DeltaSeconds)
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UGASPAnimInstance::RefreshEssentialValues"),
 	                            STAT_UGASPAnimInstance_RefreshEssentialValues, STATGROUP_GASP)
 	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
-	
+
 	CharacterInfo.ActorTransform = CachedCharacter->GetActorTransform();
 
 	if (!OffsetRootBoneEnabled)
@@ -740,7 +754,7 @@ void UGASPAnimInstance::RefreshRagdollValues(const float DeltaSeconds)
 
 bool UGASPAnimInstance::IsEnabledAO() const
 {
-	return FMath::Abs(GetAOValue().X) <= 115.f && RotationMode.Current != RotationTags::OrientToMovement &&
+	return FMath::Abs(GetAOValue().X) <= 115.f && RotationMode_Current != RotationTags::OrientToMovement &&
 		GetSlotMontageLocalWeight(FName{TEXT("DefaultSlot")}) < .5f;
 }
 
@@ -768,7 +782,7 @@ bool UGASPAnimInstance::IsCircling() const
 
 bool UGASPAnimInstance::CanOverlayTransition() const
 {
-	return StanceMode.Current == StanceTags::Standing && MovementState.Current == MovementStateTags::Idle;
+	return StanceMode_Current == StanceTags::Standing && MovementState_Current == MovementStateTags::Idle;
 }
 
 void UGASPAnimInstance::RefreshLayering(float DeltaTime)
@@ -801,7 +815,7 @@ void UGASPAnimInstance::RefreshLayering(float DeltaTime)
 		1.f - FMath::FloorToInt(LayeringState.ArmRightLocalSpaceBlendAmount));
 
 	BlendPoses.BasePoseN = FMath::FInterpTo(BlendPoses.BasePoseN,
-	                                        StanceMode.Current == StanceTags::Standing ? 1.f : 0.f, DeltaTime, 15.f);
+	                                        StanceMode_Current == StanceTags::Standing ? 1.f : 0.f, DeltaTime, 15.f);
 	BlendPoses.BasePoseCLF = FMath::GetMappedRangeValueClamped<float, float>(
 		{0.f, 1.f}, {1.f, 0.f}, BlendPoses.BasePoseN);
 }
