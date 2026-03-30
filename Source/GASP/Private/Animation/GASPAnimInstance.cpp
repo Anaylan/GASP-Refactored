@@ -10,6 +10,7 @@
 #include "Interfaces/GASPHeldObjectInterface.h"
 #include "MoverPoseSearchTrajectoryPredictor.h"
 #include "MovementSet/GASPMoverComponent.h"
+#include "Settings/GASPCharacterSettings.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPAnimInstance)
 
@@ -494,8 +495,9 @@ bool UGASPAnimInstance::IsMoving() const
 
 bool UGASPAnimInstance::ShouldTurnInPlace() const
 {
-	return CharacterInfo.Speed < 50.f && FMath::Abs(TrajectoryInfo.FutureFacingDelta) >= AnimConfiguration.
-		MaxTurnInPlaceAngle && MovementState_Current == MovementStateTags::Idle;
+	const auto* Settings{CachedCharacter->GetSettings()};
+	return CharacterInfo.Speed < 50.f && FMath::Abs(TrajectoryInfo.FutureFacingDelta) >= Settings->TurnInPlaceThreshold
+		&& MovementState_Current == MovementStateTags::Idle;
 }
 
 bool UGASPAnimInstance::ShouldSpinTransition() const

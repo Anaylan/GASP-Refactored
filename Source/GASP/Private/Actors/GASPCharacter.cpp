@@ -15,6 +15,17 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPCharacter)
 
+#define SYNC_SINGLE_TAG(OldTag, NewTag) \
+if ((OldTag).IsValid()) \
+{ \
+StateContainer.RemoveTag(OldTag); \
+} \
+if ((NewTag).IsValid()) \
+{ \
+StateContainer.AddLeafTag(NewTag); \
+}
+
+
 namespace GeneralVars
 {
 	int32 AimStyle{0};
@@ -113,6 +124,9 @@ void AGASPCharacter::BeginPlay()
 	OverlayContainerChanged.AddDynamic(this, &ThisClass::OnOverlayModeChanged);
 	PoseModeChanged.AddDynamic(this, &ThisClass::OnPoseModeChanged);
 
+	SYNC_SINGLE_TAG(FGameplayTag::EmptyTag, GetLocomotionAction());
+	SYNC_SINGLE_TAG(FGameplayTag::EmptyTag, GetStanceMode());
+	
 	SetPoseMode(PoseMode, true);
 	SetLocomotionAction(FGameplayTag::EmptyTag, true);
 
@@ -120,6 +134,7 @@ void AGASPCharacter::BeginPlay()
 
 	MoverInputs_PreSim.OrientationIntent = GetActorForwardVector();
 
+	ensureAlwaysMsgf(Settings, TEXT("Settings must be configured in character blueprint"));
 	ensureAlwaysMsgf(Settings->RotationCurveTable.IsValid(),
 	                 TEXT("RotationCurveTable must be configured in character blueprint"));
 }
@@ -155,8 +170,7 @@ void AGASPCharacter::SetMovementMode(const FGameplayTag NewMovementMode, const b
 {
 	if (NewMovementMode != AllowedMovementMode || bForce)
 	{
-		StateContainer.RemoveTag(AllowedMovementMode);
-		StateContainer.AddLeafTag(NewMovementMode);
+		SYNC_SINGLE_TAG(AllowedMovementMode, NewMovementMode);
 
 		const auto OldMovementMode{AllowedMovementMode};
 		AllowedMovementMode = NewMovementMode;
@@ -248,6 +262,7 @@ void AGASPCharacter::SetOverlayMode(const FGameplayTagContainer NewOverlayMode)
 		{
 			Server_SetOverlayMode(NewOverlayMode);
 		}
+		
 		OverlayContainerChanged.Broadcast(OldOverlayTagContainer, OverlayTagContainer);
 	}
 }
@@ -256,6 +271,8 @@ void AGASPCharacter::SetPoseMode(const FGameplayTag NewPoseMode, const bool bFor
 {
 	if (NewPoseMode != PoseMode || bForce)
 	{
+		SYNC_SINGLE_TAG(PoseMode, NewPoseMode);
+		
 		const auto OldPoseMode{PoseMode};
 		PoseMode = NewPoseMode;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, PoseMode, this);
@@ -263,6 +280,7 @@ void AGASPCharacter::SetPoseMode(const FGameplayTag NewPoseMode, const bool bFor
 		{
 			Server_SetPoseMode(NewPoseMode);
 		}
+		
 		PoseModeChanged.Broadcast(OldPoseMode, PoseMode);
 	}
 }
@@ -276,6 +294,8 @@ void AGASPCharacter::SetLocomotionAction(const FGameplayTag NewLocomotionAction,
 {
 	if (NewLocomotionAction != LocomotionAction || bForce)
 	{
+		SYNC_SINGLE_TAG(LocomotionAction, NewLocomotionAction);
+		
 		const auto OldLocomotionAction{LocomotionAction};
 		LocomotionAction = NewLocomotionAction;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, LocomotionAction, this);
@@ -532,7 +552,7 @@ FGameplayTag AGASPCharacter::GetAllowedRotationMode()
 			       ? RotationTags::Aim
 			       : RotationTags::Strafe;
 	}
-	
+
 	if (TwinStickMode)
 	{
 		if (!TwinStickAimDirection.IsZero())
@@ -655,18 +675,15 @@ TSubclassOf<UAnimInstance> AGASPCharacter::GetLinkedAnimLayer(const UChooserTabl
 	return DataAsset->GetAnimInstance();
 }
 
-void AGASPCharacter::OnPoseModeChanged_Implementation(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode)
+void AGASPCharacter::OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode)
 {
-	StateContainer.RemoveTag(OldPoseMode);
-	StateContainer.AddTag(NewPoseMode);
-
 	if (const auto LinkedAnimInstance{GetLinkedAnimLayer(Settings->PosesTable.LoadSynchronous())})
 	{
 		GetMesh()->LinkAnimClassLayers(LinkedAnimInstance);
 	}
 }
 
-void AGASPCharacter::OnOverlayModeChanged_Implementation(const FGameplayTagContainer OldOverlayMode,
+void AGASPCharacter::OnOverlayModeChanged(const FGameplayTagContainer OldOverlayMode,
                                                          const FGameplayTagContainer NewOverlayMode)
 {
 	if (const auto LinkedAnimInstance{GetLinkedAnimLayer(Settings->OverlayTable.LoadSynchronous())})
@@ -734,9 +751,8 @@ void AGASPCharacter::SetStanceMode(const FGameplayTag NewStanceMode, const bool 
 {
 	if (NewStanceMode != AllowedStanceMode || bForce)
 	{
-		StateContainer.RemoveTag(AllowedStanceMode);
-		StateContainer.AddLeafTag(NewStanceMode);
-
+		SYNC_SINGLE_TAG(AllowedStanceMode, NewStanceMode);
+		
 		const auto OldStanceMode{AllowedStanceMode};
 		AllowedStanceMode = NewStanceMode;
 		StanceModeChanged.Broadcast(OldStanceMode, AllowedStanceMode);

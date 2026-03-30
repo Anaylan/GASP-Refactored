@@ -7,9 +7,7 @@ USTRUCT(BlueprintType)
 struct FAnimConfiguration
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")
-	float MaxTurnInPlaceAngle{50.f};
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")
 	float SpinTransitionAngle{130.f};
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")

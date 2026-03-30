@@ -74,6 +74,7 @@ protected:
 	UFUNCTION()
 	virtual void OnStanceChanged(EStanceMode OldStance, EStanceMode NewStance);
 
+
 	UPROPERTY(BlueprintReadOnly, Replicated, Transient)
 	FVector_NetQuantize RagdollTargetLocation{ForceInit};
 
@@ -210,11 +211,11 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnStateChanged MovementModeChanged;
 
-	UFUNCTION(BlueprintNativeEvent)
-	void OnOverlayModeChanged(const FGameplayTagContainer OldOverlayMode, const FGameplayTagContainer NewOverlayMode);
-	UFUNCTION(BlueprintNativeEvent)
-	void OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode);
-
+	UFUNCTION()
+	virtual void OnOverlayModeChanged(const FGameplayTagContainer OldOverlayMode, const FGameplayTagContainer NewOverlayMode);
+	UFUNCTION()
+	virtual void OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode);
+	
 	TSubclassOf<UAnimInstance> GetLinkedAnimLayer(const class UChooserTable* DataTable) const;
 
 	// Sets default values for this character's properties
@@ -229,6 +230,7 @@ public:
 	 ****************************/
 	UFUNCTION(BlueprintCallable)
 	void SetMovementMode(const FGameplayTag NewMovementMode, const bool bForce = false);
+
 	UFUNCTION(BlueprintCallable)
 	void SetStanceMode(const FGameplayTag NewStanceMode, const bool bForce = false);
 
