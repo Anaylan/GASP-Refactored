@@ -30,6 +30,16 @@ UAnimNotify_FoleyEvent::UAnimNotify_FoleyEvent()
 	MovementTags = FGameplayTagContainer::CreateFromArray(MovementTagsList);
 }
 
+UGASPFootstepEffectsSet* UAnimNotify_FoleyEvent::GetAudioBank(AActor* Owner) const
+{
+	if (Owner->Implements<UGASPFoleyAudioBankInterface>())
+	{
+		const auto Audio{IGASPFoleyAudioBankInterface::Execute_GetFootstepEffects(Owner, Event)};
+		return IsValid(Audio) ? Audio : DefaultBank.Get();
+	}
+	return DefaultBank.Get();
+}
+
 void UAnimNotify_FoleyEvent::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
                                     const FAnimNotifyEventReference& EventReference)
 {
@@ -41,7 +51,8 @@ void UAnimNotify_FoleyEvent::Notify(USkeletalMeshComponent* MeshComp, UAnimSeque
 		return;
 	}
 
-	if (!CanPlayFootstepEffects(Owner) || !IsValid(DefaultBank))
+	auto AudioBank{GetAudioBank(Owner)};
+	if (!CanPlayFootstepEffects(Owner) || !IsValid(AudioBank))
 	{
 		return;
 	}
@@ -51,7 +62,7 @@ void UAnimNotify_FoleyEvent::Notify(USkeletalMeshComponent* MeshComp, UAnimSeque
 
 	if (const auto Subsystem = WorldContext->GetSubsystem<UGASPFoleyWorldSubsystem>())
 	{
-		Subsystem->PlayFoleyEvent(DefaultBank, MeshComp, SocketName, bSpawnSound, bSpawnDecal, bSpawnParticleSystem,
+		Subsystem->PlayFoleyEvent(AudioBank, MeshComp, SocketName, bSpawnSound, bSpawnDecal, bSpawnParticleSystem,
 		                          bSpawnInAir, TraceLength, VolumeMultiplier, PitchMultiplier);
 
 #if WITH_EDITOR && ALLOW_CONSOLE

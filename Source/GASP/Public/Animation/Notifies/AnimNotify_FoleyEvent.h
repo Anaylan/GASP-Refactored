@@ -47,6 +47,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AnimNotify")
 	uint8 bSpawnInAir : 1 {false};
 
+	UGASPFootstepEffectsSet* GetAudioBank(AActor* Owner) const;
 public:
 	UAnimNotify_FoleyEvent();
 

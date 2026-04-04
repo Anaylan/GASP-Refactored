@@ -105,21 +105,21 @@ struct GASP_API FMotionMatchingInfo
 	FVector LastNonZeroVector{FVector::ZeroVector};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FName> DatabaseTags{};
-	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	UPROPERTY(BlueprintReadOnly)
 	float TurnInPlaceAlpha{.2f};
-	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	UPROPERTY(BlueprintReadOnly)
 	float ProceduralTargetTime{.2f};
-	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	UPROPERTY(BlueprintReadOnly)
 	float DesiredFacingTime{.5f};
 	UPROPERTY(BlueprintReadOnly)
 	float PreviousDesiredYawRotation{0.f};
-	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	UPROPERTY(BlueprintReadOnly)
 	float AnimTime{0.f};
-	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	UPROPERTY(BlueprintReadOnly)
 	float PlayRate{0.f};
-	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	UPROPERTY(BlueprintReadOnly)
 	float StrafeWarpAlpha{0.f};
-	UPROPERTY(BlueprintReadOnly, meta = (ClampMin = 0))
+	UPROPERTY(BlueprintReadOnly)
 	float StrideWarpAlpha{0.f};
 	UPROPERTY(BlueprintReadOnly)
 	TWeakObjectPtr<class UAnimationAsset> AnimAsset;
@@ -291,9 +291,9 @@ struct GASP_API FGASPBlendStackInputs
 	TWeakObjectPtr<class UAnimationAsset> AnimationAsset{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	bool bLoop{false};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	float StartTime{.0f};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	float BlendTime{.0f};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	TWeakObjectPtr<const class UBlendProfile> BlendProfile{};
@@ -304,13 +304,13 @@ struct GASP_API FGASPChooserOutputs
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	float StartTime{.0f};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	float BlendTime{.3f};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	bool bUseMotionMatching{false};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	float MMCostLimit{.0f};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	FName BlendProfile{NAME_None};
@@ -381,9 +381,9 @@ struct GASP_API FTraversalCheckResult
 	TObjectPtr<UPrimitiveComponent> HitComponent{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal")
 	TObjectPtr<const UAnimMontage> ChosenMontage{};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal")
 	float StartTime{0.f};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal")
 	float PlayRate{0.f};
 
 	FORCEINLINE FString ToString() const
@@ -395,28 +395,4 @@ struct GASP_API FTraversalCheckResult
 			bHasFrontLedge, bHasBackLedge, bHasBackFloor, ObstacleHeight, ObstacleDepth, BackLedgeHeight,
 			IsValid(ChosenMontage) ? *ChosenMontage->GetName() : TEXT("nullptr"), StartTime, PlayRate);
 	}
-};
-
-USTRUCT(BlueprintType)
-struct GASP_API FBlendStackMachine
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
-	bool bLoop{false};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP", meta = (ClampMin = 0))
-	float AssetTimeRemaining{.0f};
-};
-
-USTRUCT(BlueprintType)
-struct GASP_API FPivotSettings
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, Category = "Settings")
-	FVector2D SpeedRange{FVector2D::ZeroVector};
-
-	UPROPERTY(EditAnywhere, Category = "Settings",
-		meta = (Description = "X = Minimum Speed, Y = Maximum Speed, Z = Minimum Angle, W = Maximum Angle"))
-	FVector4f RangeParams{FVector4f::Zero()};
 };

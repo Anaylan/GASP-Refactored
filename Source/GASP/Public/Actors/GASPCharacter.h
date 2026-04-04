@@ -1,13 +1,13 @@
 #pragma once
 
 #include "GameplayTagContainer.h"
-#include "Types/EnumTypes.h"
-#include "MoverSimulationTypes.h"
 #include "Interfaces/GASPTargetedActor.h"
+#include "MoverSimulationTypes.h"
 #include "StructUtils/InstancedStruct.h"
+#include "Types/EnumTypes.h"
 #include "Types/MovementTypes.h"
-#include "Types/TagTypes.h"
 #include "Types/StructTypes.h"
+#include "Types/TagTypes.h"
 #include "GASPCharacter.generated.h"
 
 enum class EStanceMode : uint8;
@@ -102,7 +102,7 @@ protected:
 
 	// Entry point for input production.
 	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
-	
+
 	UPROPERTY(BlueprintReadOnly)
 	float ControlRotationRate{0.f};
 	UPROPERTY(BlueprintReadOnly)
@@ -212,10 +212,11 @@ public:
 	FOnStateChanged MovementModeChanged;
 
 	UFUNCTION()
-	virtual void OnOverlayModeChanged(const FGameplayTagContainer OldOverlayMode, const FGameplayTagContainer NewOverlayMode);
+	virtual void OnOverlayModeChanged(const FGameplayTagContainer OldOverlayMode,
+	                                  const FGameplayTagContainer NewOverlayMode);
 	UFUNCTION()
 	virtual void OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode);
-	
+
 	TSubclassOf<UAnimInstance> GetLinkedAnimLayer(const class UChooserTable* DataTable) const;
 
 	// Sets default values for this character's properties
@@ -297,7 +298,7 @@ public:
 	{
 		return TraversalComponent;
 	}
-	
+
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	FGameplayTagContainer StateContainer;
 

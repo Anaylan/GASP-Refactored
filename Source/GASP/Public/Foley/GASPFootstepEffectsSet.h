@@ -20,6 +20,12 @@ struct GASP_API FGASPFootstepSoundSettings
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
 	TObjectPtr<USoundConcurrency> SoundConcurrency;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP", Meta = (ClampMin = 0, ForceUnits = "x"))
+	float VolumeMultiplier{1.f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP", Meta = (ClampMin = 0, ForceUnits = "x"))
+	float PitchMultiplier{1.f};
 	
 };
 

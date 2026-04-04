@@ -44,16 +44,15 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 	const float SprintSpeed{SprintSettings->MaxSpeed};
 
 	MaxSpeedOverride = CurrentSettings->MaxSpeed;
-	Acceleration = CharacterInputs->Gait == GaitTags::Sprint && InOutVelocity.Size2D() < RunSpeed
+	Acceleration = CharacterInputs->Gait == GaitTags::Sprint && InOutVelocity.Size2D() <= RunSpeed
 		               ? RunSettings->Acceleration
 		               : CurrentSettings->Acceleration;
 
 	Deceleration = CharacterInputs->GetMoveInput().IsZero()
 		               ? bJustLanded
-			                 ? StoppingDeceleration
-			                 : 20000.f
+			                 ? 20000.f
+			                 : StoppingDeceleration
 		               : GaitChangeDeceleration;
-
 
 	const auto FwdCurrent{CurrentFacing.GetForwardVector()};
 	const auto FwdDesired{DesiredFacing.GetForwardVector()};
@@ -95,7 +94,7 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 
 	if (FMath::Abs(CurrentOffset) >= 135.f)
 	{
-		const float Rate{CharacterInputs->ControlRotationRate};
+		const float& Rate{CharacterInputs->ControlRotationRate};
 		InOutAngularVelocityDegrees.Z = (CurrentOffset <= -135.f)
 			                                ? FMath::Clamp(InOutAngularVelocityDegrees.Z, Rate, 1000.f)
 			                                : FMath::Clamp(InOutAngularVelocityDegrees.Z, -1000.f, Rate);
@@ -104,6 +103,8 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 
 void UMovementMode_Walking::Activate()
 {
+	Super::Activate();
+
 	if (GetMoverComponent()->GetMovementModeName() == DefaultModeNames::Falling)
 	{
 		bJustLanded = true;
@@ -112,5 +113,4 @@ void UMovementMode_Walking::Activate()
 			bJustLanded = false;
 		}));
 	}
-	Super::Activate();
 }

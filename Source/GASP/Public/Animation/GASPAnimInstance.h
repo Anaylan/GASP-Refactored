@@ -28,7 +28,8 @@ class GASP_API UGASPAnimInstance : public UAnimInstance
 	GENERATED_BODY()
 
 	friend UChooserTable;
-	
+	friend struct FGASPAnimInstanceProxy;
+
 public:
 	UGASPAnimInstance() = default;
 
@@ -38,8 +39,6 @@ public:
 	virtual void NativeThreadSafeUpdateAnimation(float DeltaSeconds) override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 	virtual void NativePostUpdateAnimation();
-
-	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
 
 	// Creates a snapshot for the final ragdoll pose
 	FPoseSnapshot& SnapshotFinalRagdollPose();
@@ -129,6 +128,15 @@ public:
 	FFloatInterval GetMatchingPlayRate() const;
 
 protected:
+	UPROPERTY(Transient)
+	FGASPAnimInstanceProxy Proxy;
+
+	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
+
+	virtual void DestroyAnimInstanceProxy(FAnimInstanceProxy* InProxy) override
+	{
+	};
+
 	// --- Internal Update Logic ---
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
 	void RefreshEssentialValues(const float DeltaSeconds);
@@ -146,8 +154,6 @@ protected:
 	void RefreshOffsetRoot(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
 	void RefreshBlendStack(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
-	void RefreshBlendStackMachine(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 
 	// --- Systems Refresh ---
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
@@ -234,7 +240,7 @@ protected:
 	float MovementDirection_TimeInState{0.f};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	float MovementDirection_LastStateTime{0.f};
-	
+
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	FGameplayTag Gait_Current{GaitTags::Run};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
@@ -245,7 +251,7 @@ protected:
 	float Gait_TimeInState{0.f};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	float Gait_LastStateTime{0.f};
-	
+
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	FGameplayTag MovementState_Current{MovementStateTags::Idle};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
@@ -256,7 +262,7 @@ protected:
 	float MovementState_TimeInState{0.f};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	float MovementState_LastStateTime{0.f};
-	
+
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	FGameplayTag RotationMode_Current{RotationTags::OrientToMovement};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
@@ -267,7 +273,7 @@ protected:
 	float RotationMode_TimeInState{0.f};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	float RotationMode_LastStateTime{0.f};
-	
+
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	FGameplayTag MovementMode_Current{MovementModeTags::Grounded};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
@@ -278,7 +284,7 @@ protected:
 	float MovementMode_TimeInState{0.f};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	float MovementMode_LastStateTime{0.f};
-	
+
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
 	FGameplayTag StanceMode_Current{StanceTags::Standing};
 	UPROPERTY(BlueprintReadOnly, Category="Movement|States")
@@ -311,8 +317,6 @@ protected:
 	FLayeringState LayeringState{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Additive|Poses", Transient)
 	FGASPBlendPoses BlendPoses{};
-	UPROPERTY(BlueprintReadOnly, Category = "Additive|Poses", Transient)
-	FBlendStackMachine BlendStackMachine{};
 	UPROPERTY(BlueprintReadOnly, Category = "LocomotionAction|Information", Transient)
 	FRagdollingAnimationState RagdollingState{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeldObject", Transient)
@@ -321,7 +325,7 @@ protected:
 	FVector LeftHandOffset{FVector::ZeroVector};
 
 	// --- Config & Settings ---
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MovementInformation|General")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MovementInformation|General", meta = (ClampMin = 0))
 	float HeavyLandSpeedThreshold{700.f};
 	UPROPERTY(BlueprintReadOnly, Category = "MovementInformation|General")
 	int32 MMDatabaseLOD{0};
@@ -350,7 +354,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "StateMachine", Transient)
 	bool bNoValidAnim{true};
 
-		UFUNCTION(BlueprintGetter, Category = "Movement|Analysis", meta = (BlueprintThreadSafe))
+	UFUNCTION(BlueprintGetter, Category = "Movement|Analysis", meta = (BlueprintThreadSafe))
 	FORCEINLINE FCharacterInfo GetCharacterInfo() const { return CharacterInfo; }
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
@@ -430,17 +434,16 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
 	FORCEINLINE EMovementDirection GetMovementDirection() const { return MovementDirection_Current; }
-	
+
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
 	FORCEINLINE EMovementDirection GetPreviousMovementDirection() const { return MovementDirection_LastFrame; }
-	
+
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
 	FORCEINLINE EMovementDirection GetRecentMovementDirection() const { return MovementDirection_Recent; }
-	
+
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
 	FORCEINLINE float GetMovementDirectionTime() const { return MovementDirection_TimeInState; }
-	
+
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
 	FORCEINLINE float GetMovementDirectionLastTime() const { return MovementDirection_LastStateTime; }
-	
 };

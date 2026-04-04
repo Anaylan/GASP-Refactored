@@ -6,9 +6,11 @@
 #include "ChooserFunctionLibrary.h"
 #include "PoseSearch/PoseSearchLibrary.h"
 #include "AnimationWarpingLibrary.h"
+#include "Animation/AnimClassInterface.h"
 #include "BlendStack/BlendStackAnimNodeLibrary.h"
 #include "Interfaces/GASPHeldObjectInterface.h"
 #include "MoverPoseSearchTrajectoryPredictor.h"
+#include "Animation/AnimSubsystem_Tag.h"
 #include "MovementSet/GASPMoverComponent.h"
 #include "Settings/GASPCharacterSettings.h"
 
@@ -40,6 +42,11 @@ Container.AddTag(Gait_##Suffix); \
 Container.AddTag(MovementState_##Suffix); \
 Container.AddTag(RotationMode_##Suffix); \
 Container.AddTag(StanceMode_##Suffix); \
+}
+
+namespace
+{
+	const FName StateMachineBlendStackTag{TEXT("State Machine Blend Stack")};
 }
 
 namespace AnimVars
@@ -121,19 +128,19 @@ FTransform UGASPAnimInstance::GetHandIKTransform(const FName HandIKSocketName, c
                                                  const FVector& SocketOffset) const
 {
 	const auto* SkelMeshComp = GetSkelMeshComponent();
-	if (!SkelMeshComp || !CachedCharacter.IsValid())
+	if (!SkelMeshComp || !Proxy.Character.IsValid())
 	{
 		return FTransform::Identity;
 	}
 
 	const FTransform SocketTransform = SkelMeshComp->GetSocketTransform(HandIKSocketName);
-	const auto* Interface = Cast<IGASPHeldObjectInterface>(CachedCharacter.Get());
-	if (!Interface && !CachedCharacter->Implements<UGASPHeldObjectInterface>())
+	const auto* Interface = Cast<IGASPHeldObjectInterface>(Proxy.Character.Get());
+	if (!Interface && !Proxy.Character->Implements<UGASPHeldObjectInterface>())
 	{
 		return FTransform::Identity;
 	}
 
-	const auto* HeldObject = Interface->Execute_GetHeldObject(CachedCharacter.Get());
+	const auto* HeldObject = Interface->Execute_GetHeldObject(Proxy.Character.Get());
 	if (!IsValid(HeldObject) || !HeldObject->DoesSocketExist(ObjectIKSocketName))
 	{
 		return FTransform::Identity;
@@ -176,16 +183,29 @@ void UGASPAnimInstance::NativeBeginPlay()
 	Super::NativeBeginPlay();
 
 	CachedCharacter = Cast<AGASPCharacter>(TryGetPawnOwner());
-	if (!CachedCharacter.IsValid())
+	if (CachedCharacter.IsValid())
 	{
-		return;
+		CachedMovement = CachedCharacter->GetMoverComponent();
 	}
 
-	CachedMovement = CachedCharacter->GetMoverComponent();
-	if (!CachedMovement.IsValid())
+#if WITH_EDITOR
+	const auto* World{GetWorld()};
+
+	if (IsValid(World) && !World->IsGameWorld())
 	{
-		return;
+		// Use default objects for editor preview.
+		if (!CachedCharacter.IsValid())
+		{
+			CachedCharacter = GetMutableDefault<AGASPCharacter>();
+		}
+
+		if (!CachedMovement.IsValid())
+		{
+			CachedMovement = GetMutableDefault<UGASPMoverComponent>();
+		}
 	}
+#endif
+
 
 	CachedCharacter->OverlayContainerChanged.AddUniqueDynamic(this, &ThisClass::OnOverlayModeChanged);
 	CachedCharacter->PoseModeChanged.AddUniqueDynamic(this, &ThisClass::OnPoseModeChanged);
@@ -198,16 +218,28 @@ void UGASPAnimInstance::NativeInitializeAnimation()
 	Super::NativeInitializeAnimation();
 
 	CachedCharacter = Cast<AGASPCharacter>(TryGetPawnOwner());
-	if (!CachedCharacter.IsValid())
+	if (CachedCharacter.IsValid())
 	{
-		return;
+		CachedMovement = CachedCharacter->GetMoverComponent();
 	}
 
-	CachedMovement = CachedCharacter->GetMoverComponent();
-	if (!CachedMovement.IsValid())
+#if WITH_EDITOR
+	const auto* World{GetWorld()};
+
+	if (IsValid(World) && !World->IsGameWorld())
 	{
-		return;
+		// Use default objects for editor preview.
+		if (!CachedCharacter.IsValid())
+		{
+			CachedCharacter = GetMutableDefault<AGASPCharacter>();
+		}
+
+		if (!CachedMovement.IsValid())
+		{
+			CachedMovement = GetMutableDefault<UGASPMoverComponent>();
+		}
 	}
+#endif
 
 	Predictor = NewObject<UMoverTrajectoryPredictor>(CachedMovement.Get());
 	Predictor->Setup(CachedMovement.Get());
@@ -243,6 +275,21 @@ void UGASPAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 
 	Super::NativeThreadSafeUpdateAnimation(DeltaSeconds);
 
+	RefreshTrajectory(DeltaSeconds);
+	RefreshEssentialValues(DeltaSeconds);
+	RefreshStateContainer();
+
+	RefreshLayering(DeltaSeconds);
+}
+
+void UGASPAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
+{
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UGASPAnimInstance::NativeUpdateAnimation"),
+	                            STAT_UGASPAnimInstance_NativeUpdateAnimation, STATGROUP_GASP)
+	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
+
+	Super::NativeUpdateAnimation(DeltaSeconds);
+
 	if (!CachedCharacter.IsValid() || !CachedMovement.IsValid())
 	{
 		return;
@@ -260,28 +307,9 @@ void UGASPAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 
 	LocomotionAction = CachedCharacter->GetLocomotionAction();
 
-	RefreshEssentialValues(DeltaSeconds);
-	RefreshStateContainer();
-	RefreshTrajectory(DeltaSeconds);
-	RefreshLayering(DeltaSeconds);
-
 	if (LocomotionAction == LocomotionActionTags::Ragdoll)
 	{
 		RefreshRagdollValues(DeltaSeconds);
-	}
-}
-
-void UGASPAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
-{
-	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UGASPAnimInstance::NativeUpdateAnimation"),
-	                            STAT_UGASPAnimInstance_NativeUpdateAnimation, STATGROUP_GASP)
-	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
-
-	Super::NativeUpdateAnimation(DeltaSeconds);
-
-	if (!CachedCharacter.IsValid() || !CachedMovement.IsValid())
-	{
-		return;
 	}
 }
 
@@ -298,7 +326,7 @@ void UGASPAnimInstance::NativePostUpdateAnimation()
 
 FAnimInstanceProxy* UGASPAnimInstance::CreateAnimInstanceProxy()
 {
-	return new FGASPAnimInstanceProxy{this};
+	return &Proxy;
 }
 
 void UGASPAnimInstance::RefreshTrajectory(const float DeltaSeconds)
@@ -306,6 +334,10 @@ void UGASPAnimInstance::RefreshTrajectory(const float DeltaSeconds)
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UGASPAnimInstance::RefreshTrajectory"),
 	                            STAT_UGASPAnimInstance_RefreshTrajectory, STATGROUP_GASP)
 	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
+	if (!IsValid(Predictor) || !Proxy.Character.IsValid())
+	{
+		return;
+	}
 
 	FTransformTrajectory OutTrajectory{};
 	UPoseSearchTrajectoryLibrary::PoseSearchGenerateTransformTrajectoryWithPredictor(
@@ -314,7 +346,7 @@ void UGASPAnimInstance::RefreshTrajectory(const float DeltaSeconds)
 
 	const TArray<AActor*> IgnoredActors{};
 	UPoseSearchTrajectoryLibrary::HandleTransformTrajectoryWorldCollisions(
-		GetWorld(), this, OutTrajectory, true, .01f,
+		Proxy.Character.Get(), this, OutTrajectory, true, .01f,
 		Trajectory, TrajectoryCollision, UEngineTypes::ConvertToTraceType(ECC_Visibility), false,
 		IgnoredActors, EDrawDebugTrace::None, true, 150.f);
 
@@ -324,12 +356,11 @@ void UGASPAnimInstance::RefreshTrajectory(const float DeltaSeconds)
 	UPoseSearchTrajectoryLibrary::GetTransformTrajectoryVelocity(Trajectory, .1f, .2f,
 	                                                             TrajectoryInfo.NearFutureVelocity,
 	                                                             false);
-
 	TrajectoryInfo.PreviousFutureVelocity = TrajectoryInfo.FutureVelocity;
 	UPoseSearchTrajectoryLibrary::GetTransformTrajectoryVelocity(Trajectory, .4f, .5f, TrajectoryInfo.FutureVelocity,
 	                                                             false);
 
-	TrajectoryInfo.FutureFacing = Trajectory.GetSampleAtTime(1.5).Facing.Rotator();
+	TrajectoryInfo.FutureFacing = Trajectory.GetSampleAtTime(1.5f).Facing.Rotator();
 
 	TrajectoryInfo.PreviousFutureFacingDelta = TrajectoryInfo.FutureFacingDelta;
 	TrajectoryInfo.FutureFacingDelta = GetTotalFacingDelta({0.f, 0.25f, 0.75f, 1.5f});
@@ -495,8 +526,14 @@ bool UGASPAnimInstance::IsMoving() const
 
 bool UGASPAnimInstance::ShouldTurnInPlace() const
 {
-	const auto* Settings{CachedCharacter->GetSettings()};
-	return CharacterInfo.Speed < 50.f && FMath::Abs(TrajectoryInfo.FutureFacingDelta) >= Settings->TurnInPlaceThreshold
+	if (!Proxy.Character.IsValid())
+	{
+		return false;
+	}
+
+	const auto* Settings{Proxy.Character->GetSettings()};
+	return Settings && CharacterInfo.Speed < 50.f && FMath::Abs(TrajectoryInfo.FutureFacingDelta) >= Settings->
+		TurnInPlaceThreshold
 		&& MovementState_Current == MovementStateTags::Idle;
 }
 
@@ -550,12 +587,6 @@ float UGASPAnimInstance::GetTrajectoryTurnAngle() const
 
 FVector2D UGASPAnimInstance::GetLeanAmount() const
 {
-	if (!CachedCharacter.IsValid())
-	{
-		return FVector2D::ZeroVector;
-	}
-
-
 	float LateralAccelerationAmount = FMath::Clamp(
 		CharacterInfo.Velocity.ToOrientationRotator().UnrotateVector(CharacterInfo.VelocityAcceleration).Y /
 		FMath::GetMappedRangeValueClamped<float, float>({200.f, 320.f}, {500.f, 800.f}, CharacterInfo.Speed), -1.f,
@@ -688,23 +719,6 @@ void UGASPAnimInstance::RefreshBlendStack(const FAnimUpdateContext& Context, con
 	                                                     BlendStack.AnimTime, BlendStack.TurnInPlaceAlpha);
 }
 
-void UGASPAnimInstance::RefreshBlendStackMachine(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
-{
-	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UGASPAnimInstance::RefreshBlendStackMachine"),
-	                            STAT_UGASPAnimInstance_RefreshBlendStackMachine, STATGROUP_GASP)
-	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
-
-	EAnimNodeReferenceConversionResult Result{};
-	const auto Reference{UBlendStackAnimNodeLibrary::ConvertToBlendStackNode(Node, Result)};
-	if (Result == EAnimNodeReferenceConversionResult::Failed)
-	{
-		return;
-	}
-
-	BlendStackMachine.bLoop = UBlendStackAnimNodeLibrary::IsCurrentAssetLooping(Reference);
-	BlendStackMachine.AssetTimeRemaining = UBlendStackAnimNodeLibrary::GetCurrentAssetTimeRemaining(Reference);
-}
-
 void UGASPAnimInstance::OnBecomeRelevantFootPlacement(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	ForceFootPlacementReset = true;
@@ -715,21 +729,25 @@ void UGASPAnimInstance::RefreshEssentialValues(const float DeltaSeconds)
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UGASPAnimInstance::RefreshEssentialValues"),
 	                            STAT_UGASPAnimInstance_RefreshEssentialValues, STATGROUP_GASP)
 	TRACE_CPUPROFILER_EVENT_SCOPE(__FUNCTION__);
+	if (!Proxy.Character.IsValid() || !Proxy.MoverComponent.IsValid())
+	{
+		return;
+	}
 
-	CharacterInfo.ActorTransform = CachedCharacter->GetActorTransform();
+	CharacterInfo.ActorTransform = Proxy.Character->GetActorTransform();
 
 	if (!OffsetRootBoneEnabled)
 	{
 		CharacterInfo.RootTransform = CharacterInfo.ActorTransform;
 	}
 
-	const auto InputState{CachedCharacter->GetMoverState()};
-	CharacterInfo.Acceleration = CachedMovement->GetMovementIntent();
+	const auto InputState{Proxy.Character->GetMoverState()};
+	CharacterInfo.Acceleration = Proxy.MoverComponent->GetMovementIntent();
 	CharacterInfo.FloorLocation = InputState.FloorLocation;
 	CharacterInfo.FloorNormal = InputState.FloorNormal;
 
 	// Refresh velocity variables
-	CharacterInfo.Velocity = CachedMovement->GetVelocity();
+	CharacterInfo.Velocity = Proxy.MoverComponent->GetVelocity();
 	CharacterInfo.Speed = CharacterInfo.Velocity.Size2D();
 
 	// Calculate rate of change velocity
@@ -762,12 +780,12 @@ bool UGASPAnimInstance::IsEnabledAO() const
 
 FVector2D UGASPAnimInstance::GetAOValue() const
 {
-	if (!CachedCharacter.IsValid())
+	if (!Proxy.Character.IsValid())
 	{
 		return FVector2D::ZeroVector;
 	}
 
-	const auto ControlRot{CachedCharacter->GetMoverState().ControlRotation};
+	const auto ControlRot{Proxy.Character->GetMoverState().ControlRotation};
 	const auto RootRot{CharacterInfo.RootTransform.Rotator()};
 	auto DeltaRot{(ControlRot - RootRot).GetNormalized()};
 
@@ -835,9 +853,9 @@ void UGASPAnimInstance::SetBlendStackAnimFromChooser(const FAnimNodeReference& N
 	Context.AddObjectParam(this);
 	Context.AddStructParam(ChooserOutputs);
 
-	BlendStack.Databases = UChooserFunctionLibrary::EvaluateObjectChooserBaseMulti(
+	auto Databases = UChooserFunctionLibrary::EvaluateObjectChooserBaseMulti(
 		Context, UChooserFunctionLibrary::MakeEvaluateChooser(StateMachineTable), UAnimationAsset::StaticClass());
-
+	BlendStack.Databases = Databases;
 	if (BlendStack.Databases.IsEmpty())
 	{
 		bNoValidAnim = true;
@@ -845,8 +863,8 @@ void UGASPAnimInstance::SetBlendStackAnimFromChooser(const FAnimNodeReference& N
 	}
 
 	// Update blend stack inputs
-	BlendStackInputs.AnimationAsset = static_cast<UAnimationAsset*>(BlendStack.Databases[0]);
-	UPoseSearchLibrary::IsAnimationAssetLooping(BlendStack.Databases[0], BlendStackInputs.bLoop);
+	BlendStackInputs.AnimationAsset = static_cast<UAnimationAsset*>(Databases[0]);
+	UPoseSearchLibrary::IsAnimationAssetLooping(Databases[0], BlendStackInputs.bLoop);
 	BlendStackInputs.StartTime = ChooserOutputs.StartTime;
 	BlendStackInputs.BlendTime = ChooserOutputs.BlendTime;
 	BlendStackInputs.BlendProfile = GetBlendProfileByName(ChooserOutputs.BlendProfile);
@@ -879,18 +897,40 @@ void UGASPAnimInstance::SetBlendStackAnimFromChooser(const FAnimNodeReference& N
 
 	if (bForceBlend)
 	{
-		EAnimNodeReferenceConversionResult Result{};
-		const auto Reference{UBlendStackAnimNodeLibrary::ConvertToBlendStackNode(Node, Result)};
-		if (Result == EAnimNodeReferenceConversionResult::Succeeded)
+		const auto* AnimClass = IAnimClassInterface::GetFromClass(GetClass());
+		const auto* TagSubsystem = AnimClass ? AnimClass->FindSubsystem<FAnimSubsystem_Tag>() : nullptr;
+		const int32 BlendStackNodeIndex = TagSubsystem
+			                                  ? TagSubsystem->FindNodeIndexByTag(StateMachineBlendStackTag)
+			                                  : INDEX_NONE;
+
+		if (BlendStackNodeIndex != INDEX_NONE)
 		{
-			UBlendStackAnimNodeLibrary::ForceBlendNextUpdate(Reference);
+			EAnimNodeReferenceConversionResult Result{};
+			const auto BlendRef = UBlendStackAnimNodeLibrary::ConvertToBlendStackNode(
+				FAnimNodeReference(this, BlendStackNodeIndex), Result);
+			if (Result != EAnimNodeReferenceConversionResult::Succeeded)
+			{
+				return;
+			}
+
+			UBlendStackAnimNodeLibrary::ForceBlendNextUpdate(BlendRef);
 		}
 	}
 }
 
 bool UGASPAnimInstance::IsAnimationAlmostComplete() const
 {
-	return !BlendStackMachine.bLoop && BlendStackMachine.AssetTimeRemaining <= .75f;
+	const auto* AnimAsset{BlendStack.AnimAsset.Get()};
+	if (!IsValid(AnimAsset))
+	{
+		return false;
+	}
+
+	bool bLoop{false};
+	UPoseSearchLibrary::IsAnimationAssetLooping(AnimAsset, bLoop);
+
+	const float AssetTimeRemaining{FMath::Max(AnimAsset->GetPlayLength() - BlendStack.AnimTime, 0.f)};
+	return !bLoop && AssetTimeRemaining <= 0.75f;
 }
 
 float UGASPAnimInstance::GetDynamicPlayRate(const FAnimNodeReference& Node) const

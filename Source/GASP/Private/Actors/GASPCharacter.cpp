@@ -124,19 +124,15 @@ void AGASPCharacter::BeginPlay()
 	OverlayContainerChanged.AddDynamic(this, &ThisClass::OnOverlayModeChanged);
 	PoseModeChanged.AddDynamic(this, &ThisClass::OnPoseModeChanged);
 
-	SYNC_SINGLE_TAG(FGameplayTag::EmptyTag, GetLocomotionAction());
-	SYNC_SINGLE_TAG(FGameplayTag::EmptyTag, GetStanceMode());
-	
 	SetPoseMode(PoseMode, true);
 	SetLocomotionAction(FGameplayTag::EmptyTag, true);
+	SetStanceMode(AllowedStanceMode, true);
 
 	GetMesh()->AddTickPrerequisiteActor(this);
 
 	MoverInputs_PreSim.OrientationIntent = GetActorForwardVector();
 
 	ensureAlwaysMsgf(Settings, TEXT("Settings must be configured in character blueprint"));
-	ensureAlwaysMsgf(Settings->RotationCurveTable.IsValid(),
-	                 TEXT("RotationCurveTable must be configured in character blueprint"));
 }
 
 void AGASPCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -199,6 +195,8 @@ void AGASPCharacter::PostInitializeComponents()
 	{
 		TwinStickMode = CVar ? CVar->GetInt() == 1 : false;
 	});
+	
+	Settings->PreloadTables();
 }
 
 void AGASPCharacter::RefreshMoverState()
@@ -262,7 +260,7 @@ void AGASPCharacter::SetOverlayMode(const FGameplayTagContainer NewOverlayMode)
 		{
 			Server_SetOverlayMode(NewOverlayMode);
 		}
-		
+
 		OverlayContainerChanged.Broadcast(OldOverlayTagContainer, OverlayTagContainer);
 	}
 }
@@ -272,7 +270,7 @@ void AGASPCharacter::SetPoseMode(const FGameplayTag NewPoseMode, const bool bFor
 	if (NewPoseMode != PoseMode || bForce)
 	{
 		SYNC_SINGLE_TAG(PoseMode, NewPoseMode);
-		
+
 		const auto OldPoseMode{PoseMode};
 		PoseMode = NewPoseMode;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, PoseMode, this);
@@ -280,7 +278,7 @@ void AGASPCharacter::SetPoseMode(const FGameplayTag NewPoseMode, const bool bFor
 		{
 			Server_SetPoseMode(NewPoseMode);
 		}
-		
+
 		PoseModeChanged.Broadcast(OldPoseMode, PoseMode);
 	}
 }
@@ -295,7 +293,7 @@ void AGASPCharacter::SetLocomotionAction(const FGameplayTag NewLocomotionAction,
 	if (NewLocomotionAction != LocomotionAction || bForce)
 	{
 		SYNC_SINGLE_TAG(LocomotionAction, NewLocomotionAction);
-		
+
 		const auto OldLocomotionAction{LocomotionAction};
 		LocomotionAction = NewLocomotionAction;
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, LocomotionAction, this);
@@ -684,7 +682,7 @@ void AGASPCharacter::OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGa
 }
 
 void AGASPCharacter::OnOverlayModeChanged(const FGameplayTagContainer OldOverlayMode,
-                                                         const FGameplayTagContainer NewOverlayMode)
+                                          const FGameplayTagContainer NewOverlayMode)
 {
 	if (const auto LinkedAnimInstance{GetLinkedAnimLayer(Settings->OverlayTable.LoadSynchronous())})
 	{
@@ -752,7 +750,7 @@ void AGASPCharacter::SetStanceMode(const FGameplayTag NewStanceMode, const bool 
 	if (NewStanceMode != AllowedStanceMode || bForce)
 	{
 		SYNC_SINGLE_TAG(AllowedStanceMode, NewStanceMode);
-		
+
 		const auto OldStanceMode{AllowedStanceMode};
 		AllowedStanceMode = NewStanceMode;
 		StanceModeChanged.Broadcast(OldStanceMode, AllowedStanceMode);
