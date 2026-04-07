@@ -6,7 +6,7 @@
 /**
  * 
  */
-USTRUCT(DisplayName = "Clamp Pelvis Offset", meta = (Category = "", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+USTRUCT(DisplayName = "Clamp Pelvis Offset", meta = (Category = "GASP|Foot Placement", Keywords = "Clamp, Pelvis, Offset, Hip, Leg Length, Foot Placement", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ClampPelvisOffset : public FRigUnitMutable
 {
 	GENERATED_BODY()

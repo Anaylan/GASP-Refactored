@@ -3,7 +3,7 @@
 #include "Units/RigUnit.h"
 #include "RigUnit_DistributeRotationSimple.generated.h"
 
-USTRUCT(DisplayName = "Distribute Rotation Simple", Meta = (Category = "", NodeColor = "0.0 0.36 1.0"))
+USTRUCT(DisplayName = "Distribute Rotation Simple", Meta = (Category = "GASP|IK", Keywords = "Distribute, Rotation, Twist, Chain, Items", NodeColor = "0.0 0.36 1.0"))
 struct GASP_API FRigUnit_DistributeRotationSimple : public FRigUnitMutable
 {
 	GENERATED_BODY()

@@ -211,3 +211,33 @@ FRigUnit_ClampPinDistance_Execute()
 
 	World = ExecuteContext.ToWorldSpace(ClampedDelta + Translation);
 }
+
+FRigVMFunction_IsGameWorld_Execute()
+{
+	if (!BlockToRun.IsNone())
+	{
+		BlockToRun = ControlFlowCompletedName;
+		return;
+	}
+
+#if WITH_EDITOR
+	const UWorld* World{ExecuteContext.GetWorld()};
+
+	BlockToRun = IsValid(World) && World->IsGameWorld()
+		             ? FName{GET_MEMBER_NAME_STRING_VIEW_CHECKED(FRigVMFunction_IsGameWorld, True)}
+		             : FName{GET_MEMBER_NAME_STRING_VIEW_CHECKED(FRigVMFunction_IsGameWorld, False)};
+#else
+	BlockToRun = FName{GET_MEMBER_NAME_STRING_VIEW_CHECKED(FRigVMFunction_IsGameWorld, True)};
+#endif
+}
+
+const TArray<FName>& FRigVMFunction_IsGameWorld::GetControlFlowBlocks_Impl() const
+{
+	static const TArray<FName> Blocks{
+		FName{GET_MEMBER_NAME_STRING_VIEW_CHECKED(FRigVMFunction_IsGameWorld, True)},
+		FName{GET_MEMBER_NAME_STRING_VIEW_CHECKED(FRigVMFunction_IsGameWorld, False)},
+		ForLoopCompletedPinName
+	};
+
+	return Blocks;
+}

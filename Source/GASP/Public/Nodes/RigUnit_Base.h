@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RigVMFunctions/RigVMFunction_ControlFlow.h"
 #include "Units/RigUnit.h"
 #include "RigUnit_Base.generated.h"
 
@@ -8,7 +9,7 @@
  * Used to determine the steepness of the terrain for gait and posture adjustments.
  */
 USTRUCT(DisplayName = "Calculate Slope Angle",
-	meta = (Category = "GASP|Math", Keywords = "Slope, Angle, Ground, Normal", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Math", Keywords = "Slope, Angle, Ground, Floor, Normal, Incline", NodeColor = "1.0 1.0 1.0"))
 struct GASP_API FRigUnit_CalculateSlopeAngle : public FRigUnit
 {
 	GENERATED_BODY()
@@ -36,7 +37,7 @@ public:
  * Blends animated motion with a fixed world-space pin position to prevent foot sliding.
  */
 USTRUCT(DisplayName = "Compute Pinned Toe Transform",
-	meta = (Category = "GASP|Foot Placement", Keywords = "Toe, Pin, Lock, Transform, IK", NodeColor = "1.0 0.36 0.0"))
+	meta = (Category = "GASP|Foot Placement", Keywords = "Toe, Pin, Lock, Transform, Foot, Ground, IK", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ComputePinnedToeTransform : public FRigUnit
 {
 	GENERATED_BODY()
@@ -60,7 +61,7 @@ public:
  * Used for procedural foot placement on uneven terrain.
  */
 USTRUCT(DisplayName = "Adjust Position To Plane",
-	meta = (Category = "GASP|Math", Keywords = "Adjust, Position, Plane, Ground, Project", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Math", Keywords = "Adjust, Position, Plane, Ground, Project, Height, Offset", NodeColor = "1.0 1.0 1.0"))
 struct GASP_API FRigUnit_AdjustPositionToPlane : public FRigUnit
 {
 	GENERATED_BODY()
@@ -88,7 +89,7 @@ public:
  * Defines which way the knee or elbow points during IK solving.
  */
 USTRUCT(DisplayName = "Get Pole Vector",
-	meta = (Category = "GASP|Limb", Keywords = "Pole, Vector, Knee, Elbow, Direction, IK", NodeColor = "0.16 0.15 0.0"))
+	meta = (Category = "GASP|IK", Keywords = "Pole, Vector, Knee, Elbow, Limb, Direction, IK", NodeColor = "0.0 0.36 1.0"))
 struct GASP_API FRigUnit_GetPoleVector : public FRigUnit
 {
 	GENERATED_BODY()
@@ -126,7 +127,7 @@ public:
  * Ensures that a bone cannot descend below the height of another bone (like a floor proxy).
  */
 USTRUCT(DisplayName = "Clamp Transform Min Height From Reference",
-	meta = (Category = "GASP|Math", Keywords = "Clamp, Height, Floor, Min, Reference", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Math", Keywords = "Clamp, Height, Minimum, Floor, Reference, Transform", NodeColor = "1.0 1.0 1.0"))
 struct GASP_API FRigUnit_ClampTransformMinHeightFromReference : public FRigUnit
 {
 	GENERATED_BODY()
@@ -152,7 +153,7 @@ public:
  * Prevents extreme foot/ankle tilting on very steep inclines.
  */
 USTRUCT(DisplayName = "Limit Rotation to Max Slope Angle",
-	meta = (Category = "GASP|Math", Keywords = "Limit, Rotation, Clamp, Angle, Slope", NodeColor = "0.0 0.36 1.0"))
+	meta = (Category = "GASP|Math", Keywords = "Limit, Rotation, Clamp, Angle, Slope, Ground, Normal", NodeColor = "0.0 0.36 1.0"))
 struct GASP_API FRigUnit_LimitRotationToMaxSlopeAngle : public FRigUnit
 {
 	GENERATED_BODY()
@@ -178,7 +179,7 @@ public:
  * Calculated as: distance(Upper, Mid) + distance(Mid, End).
  */
 USTRUCT(DisplayName = "Calculate Limb Length",
-	meta = (Category = "GASP|Limb", Keywords = "Limb, Length, Distance, Bone, Leg, Arm", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|IK", Keywords = "Limb, Length, Distance, Bone, Chain, Leg, Arm", NodeColor = "0.0 0.36 1.0"))
 struct GASP_API FRigUnit_CalculateLimbLength : public FRigUnit
 {
 	GENERATED_BODY()
@@ -190,8 +191,7 @@ public:
 	FRigElementKey MidBone;
 	UPROPERTY(meta = (Input))
 	FRigElementKey EndBone;
-
-
+	
 	UPROPERTY(meta = (Output))
 	float Result{ForceInit};
 
@@ -211,7 +211,7 @@ public:
  * 
  */
 USTRUCT(DisplayName = "Compute Unpinning Transform",
-	meta = (Category = "", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Foot Placement", Keywords = "Unpin, Translation, Toe, Pin, Release, Foot Placement", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ComputeUnpinningTranslation : public FRigUnit
 {
 	GENERATED_BODY()
@@ -236,7 +236,7 @@ public:
  * 
  */
 USTRUCT(DisplayName = "Project Z Damper To Ground Plane",
-	meta = (Category = "", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Foot Placement", Keywords = "Project, Z, Damper, Ground, Plane, Floor, Foot Placement", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ProjectZDamperToGroundPlane : public FRigUnit
 {
 	GENERATED_BODY()
@@ -261,7 +261,7 @@ public:
  * 
  */
 USTRUCT(DisplayName = "Alpha Linear Interp",
-	meta = (Category = "", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Math", Keywords = "Alpha, Linear, Interp, Interpolate, Lerp, Blend, Scalar", NodeColor = "1.0 1.0 1.0"))
 struct GASP_API FRigUnit_AlphaLinearInterp : public FRigUnit
 {
 	GENERATED_BODY()
@@ -286,7 +286,7 @@ public:
  * 
  */
 USTRUCT(DisplayName = "Clamp Pin Yaw",
-	meta = (Category = "", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Foot Placement", Keywords = "Clamp, Pin, Yaw, Rotation, Foot Placement, Lock", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ClampPinYaw : public FRigUnit
 {
 	GENERATED_BODY()
@@ -308,10 +308,10 @@ public:
 };
 
 /**
- * 
+ *
  */
 USTRUCT(DisplayName = "Clamp Pin Distance",
-	meta = (Category = "", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Foot Placement", Keywords = "Clamp, Pin, Distance, Translation, Foot Placement, Lock", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ClampPinDistance : public FRigUnit
 {
 	GENERATED_BODY()
@@ -330,4 +330,35 @@ public:
 public:
 	RIGVM_METHOD()
 	virtual void Execute() override;
+};
+
+/**
+ * 
+ */
+USTRUCT(DisplayName = "Is Game World", Meta = (Category = "GASP|Utility", Keywords = "Is, Game, World, Editor, Preview, PIE", NodeColor = "1.0 1.0 1.0"))
+struct GASP_API FRigVMFunction_IsGameWorld : public FRigVMFunction_ControlFlowBase
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(Transient, DisplayName = "Execute", Meta = (Input))
+	FRigVMExecuteContext ExecuteContext;
+
+	UPROPERTY(Transient, Meta = (Output))
+	FRigVMExecuteContext True;
+
+	UPROPERTY(Transient, Meta = (Output))
+	FRigVMExecuteContext False;
+
+	UPROPERTY(meta=(Output))
+	FRigVMExecuteContext Completed;
+
+	UPROPERTY(Transient, Meta = (Singleton))
+	FName BlockToRun;
+
+public:
+	RIGVM_METHOD()
+	virtual void Execute() override;
+
+	virtual const TArray<FName>& GetControlFlowBlocks_Impl() const override;
 };

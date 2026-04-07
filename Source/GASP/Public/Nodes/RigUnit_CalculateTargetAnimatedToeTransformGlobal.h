@@ -4,7 +4,7 @@
 #include "RigUnit_CalculateTargetAnimatedToeTransformGlobal.generated.h"
 
 USTRUCT(DisplayName = "Calculate Target Animated Toe Transform Global",
-	meta = (Category = "GASP|Math", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Foot Placement", Keywords = "Calculate, Toe, Animated, Target, Global, Foot, IK", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_CalculateTargetAnimatedToeTransformGlobal : public FRigUnit
 {
 	GENERATED_BODY()

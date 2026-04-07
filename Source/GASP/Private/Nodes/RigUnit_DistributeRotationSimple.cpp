@@ -17,7 +17,20 @@ FRigUnit_DistributeRotationSimple_Execute()
 		return;
 	}
 
-	const auto DeltaRotation{FQuat::Slerp(FQuat::Identity, Rotation, 1.0f / static_cast<float>(Items.Num()))};
+	auto NormalizedRotation{Rotation};
+	NormalizedRotation.Normalize();
+
+	// Match the original shortest-path distribution without using quaternion interpolation.
+	if (NormalizedRotation.W < 0.0)
+	{
+		NormalizedRotation = NormalizedRotation * -1.0;
+	}
+
+	FVector RotationAxis{FVector::ForwardVector};
+	double RotationAngle{0.0};
+	NormalizedRotation.ToAxisAndAngle(RotationAxis, RotationAngle);
+
+	const auto DeltaRotation{FQuat{RotationAxis, RotationAngle / static_cast<double>(Items.Num())}};
 	if (DeltaRotation.IsIdentity(UE_KINDA_SMALL_NUMBER))
 	{
 		return;

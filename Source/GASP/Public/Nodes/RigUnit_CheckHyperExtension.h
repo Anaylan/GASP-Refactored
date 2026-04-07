@@ -7,7 +7,7 @@
  * 
  */
 USTRUCT(DisplayName = "Check Hyper Extension",
-	meta = (Category = "GASP|Math", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|IK", Keywords = "Check, Hyper Extension, Hyperextension, Leg, Clamp, Stretch, IK", NodeColor = "0.0 0.36 1.0"))
 struct GASP_API FRigUnit_CheckHyperExtension : public FRigUnit
 {
 	GENERATED_BODY()

@@ -7,7 +7,7 @@
  * 
  */
 USTRUCT(DisplayName = "Compute Toe Ground Alignment",
-	meta = (Category = "", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+	meta = (Category = "GASP|Foot Placement", Keywords = "Compute, Toe, Ground, Alignment, Floor, Normal, Impact", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ComputeToeGroundAlignment : public FRigUnit
 {
 	GENERATED_BODY()
