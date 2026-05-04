@@ -381,7 +381,10 @@ void UGASPAnimInstance::RefreshTrajectory(const float DeltaSeconds)
 
 float UGASPAnimInstance::GetTotalFacingDelta(TArray<float> Times) const
 {
-	if (Times.IsEmpty()) return 0.f;
+	if (Times.IsEmpty())
+	{
+		return 0.f;
+	}
 
 	float CurrentYaw = Trajectory.GetSampleAtTime(Times[0]).Facing.Rotator().Yaw;
 	float AngleSum = FMath::FindDeltaAngleDegrees(CharacterInfo.RootOffsetRotation.Yaw, CurrentYaw);
@@ -929,7 +932,8 @@ bool UGASPAnimInstance::IsAnimationAlmostComplete() const
 	bool bLoop{false};
 	UPoseSearchLibrary::IsAnimationAssetLooping(AnimAsset, bLoop);
 
-	const float AssetTimeRemaining{FMath::Max(AnimAsset->GetPlayLength() - BlendStack.AnimTime, 0.f)};
+	const float PredictedCurrentTime = BlendStack.AnimTime + (GetDeltaSeconds() * BlendStack.PlayRate);
+	const float AssetTimeRemaining{FMath::Max(AnimAsset->GetPlayLength() - PredictedCurrentTime, 0.f)};
 	return !bLoop && AssetTimeRemaining <= 0.75f;
 }
 

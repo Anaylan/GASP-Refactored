@@ -81,12 +81,7 @@ void UGASPCharacterSettings::PostLoad()
 
 void UGASPCharacterSettings::PreloadTables()
 {
-	if (HasAnyFlags(RF_ClassDefaultObject))
-	{
-		return;
-	}
-
-	if (TablesLoadHandle.IsValid())
+	if (HasAnyFlags(RF_ClassDefaultObject) || TablesLoadHandle.IsValid())
 	{
 		return;
 	}

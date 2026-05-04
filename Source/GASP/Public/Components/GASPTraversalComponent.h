@@ -1,29 +1,32 @@
-﻿#pragma once
+#pragma once
 
-#include "GameplayTagContainer.h"
 #include "Components/ActorComponent.h"
+#include "GameplayTagContainer.h"
 #include "PoseSearch/PoseSearchHistory.h"
 #include "Types/StructTypes.h"
 #include "GASPTraversalComponent.generated.h"
 
+class AGASPCharacter;
 class UGASPMoverComponent;
-class UGASPAnimInstance;
+class UAnimInstance;
 class UCapsuleComponent;
 class USplineComponent;
 class UMotionWarpingComponent;
-class AGASPCharacter;
+class AActor;
 class UChooserTable;
 
 UENUM(BlueprintType)
 enum class ETraversalEventType : uint8
 {
-	Triggered,
-	Done
+	Triggered, Done
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTraversalEventDelegate, ETraversalEventType, EventType);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTraversalEventDelegate,
+                                            ETraversalEventType, EventType);
+
 /**
- * Input structure for the traversal chooser system that determines which traversal animations to play
+ * Input structure for the traversal chooser system that determines which
+ * traversal animations to play
  */
 USTRUCT(BlueprintType)
 struct GASP_API FTraversalChooserInput
@@ -46,11 +49,11 @@ struct GASP_API FTraversalChooserInput
 	float DistanceToLedge{0.f};
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal")
-	uint8 bHasFrontLedge : 1{false};
+	uint8 bHasFrontLedge : 1 {false};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal")
-	uint8 bHasBackLedge : 1{false};
+	uint8 bHasBackLedge : 1 {false};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal")
-	uint8 bHasBackFloor : 1{false};
+	uint8 bHasBackFloor : 1 {false};
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal")
 	FPoseHistoryReference PoseHistory{};
@@ -151,11 +154,12 @@ struct GASP_API FComputeLedgeData
 	FORCEINLINE FString ToString() const
 	{
 		return FString::Printf(
-			TEXT(
-				"Found Front Ledge: %hhd\nFound Back Ledge: %hhd\nStart Ledge Location:%s\nStart Ledge Normal: "
-				"%s\nEnd Ledge Location: %s\nEnd Ledge Normal: %s"), bFoundFrontLedge, bFoundBackLedge,
-			*StartLedgeLocation.ToString(), *StartLedgeNormal.ToString(),
-			*EndLedgeLocation.ToString(), *EndLedgeNormal.ToString());
+			TEXT("Found Front Ledge: %hhd\nFound Back Ledge: %hhd\nStart Ledge "
+				"Location:%s\nStart Ledge Normal: "
+				"%s\nEnd Ledge Location: %s\nEnd Ledge Normal: %s"),
+			bFoundFrontLedge, bFoundBackLedge, *StartLedgeLocation.ToString(),
+			*StartLedgeNormal.ToString(), *EndLedgeLocation.ToString(),
+			*EndLedgeNormal.ToString());
 	}
 };
 
@@ -164,7 +168,7 @@ struct GASP_API FComputeLedgeData
  * vaulting, climbing, jumping, etc. Uses a combination of collision detection,
  * motion warping, and animation selection to achieve realistic movement.
  */
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class GASP_API UGASPTraversalComponent : public UActorComponent
 {
 	GENERATED_BODY()
@@ -185,59 +189,63 @@ protected:
 	 */
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
-	/** 
-	 * Processes motion warping for a traversal movement by extracting curve values
+	/**
+	 * Processes motion warping for a traversal movement by extracting curve
+	 * values
 	 * @param CurveName Name of the curve to retrieve values from
 	 * @param WarpTarget The motion warping target name
-	 * @param Value Reference to store the retrieved value from the animation curve
+	 * @param Value Reference to store the retrieved value from the animation
+	 * curve
 	 */
-	void ExtractWarpTargetCurveValue(const FName CurveName, const FName WarpTarget, float& Value) const;
+	void ExtractWarpTargetCurveValue(const FName CurveName,
+	                                 const FName WarpTarget, float& Value) const;
 
-	/** 
+	/**
 	 * Updates motion warping targets based on current traversal results
 	 * Sets up front ledge, back ledge, and back floor targets for motion warping
 	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
+	UFUNCTION(BlueprintCallable, Category = "Traversal")
 	void UpdateWarpTargets();
 
-	/** 
+	/**
 	 * Implements traversal action processing on the server
 	 * @param TraversalRep The replicated traversal result data
 	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
+	UFUNCTION(BlueprintCallable, Category = "Traversal")
 	void Traversal_ServerImplementation(const FTraversalCheckResult TraversalRep);
 
-	/** 
+	/**
 	 * Replication callback for TraversalCheckResult
 	 * Triggers traversal action execution when replicated from server
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Traversal")
 	void OnRep_TraversalResult();
 
-	/** 
-	 * Handles the completion of a traversal action 
+	/**
+	 * Handles the completion of a traversal action
 	 */
 	UFUNCTION()
 	void OnCompleteTraversal(FName NotifyName);
 
 	/** Cached traversal check results from the most recent traversal attempt */
-	UPROPERTY(BlueprintReadOnly, Category="Traversal", ReplicatedUsing=OnRep_TraversalResult, Transient)
+	UPROPERTY(BlueprintReadOnly, Category = "Traversal",
+		ReplicatedUsing = OnRep_TraversalResult, Transient)
 	FTraversalCheckResult TraversalCheckResult{};
 
 	/** Whether the character is currently performing a traversal action */
-	UPROPERTY(BlueprintReadOnly, Category="Traversal", Transient)
-	uint8 bDoingTraversalAction : 1{false};
+	UPROPERTY(BlueprintReadOnly, Category = "Traversal", Transient)
+	uint8 bDoingTraversalAction : 1 {false};
 
 	/** Tags that prevent specific traversal actions from being selected */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Traversal")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Traversal")
 	FName BannedTag{TEXT("Banned")};
 
 	/** Minimum required width of a ledge for traversal in units */
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Traversal")
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Traversal")
 	float MinLedgeWidth{30.f};
 
 	/** Minimum required depth of the front ledge for traversal in units */
-	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category="Traversal")
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Traversal")
 	float MinFrontLedgeDepth{37.522631f};
 
 	/**
@@ -245,7 +253,7 @@ protected:
 	 * @param HitResult The hit result from the initial obstacle detection
 	 * @return Structure containing computed ledge data
 	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
+	UFUNCTION(BlueprintCallable, Category = "Traversal")
 	FComputeLedgeData ComputeLedgeData(FHitResult& HitResult) const;
 
 	/**
@@ -253,8 +261,9 @@ protected:
 	 * @param HitResult The hit result from the initial obstacle detection
 	 * @param TraversalData Output structure to populate with ledge information
 	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
-	void TryAndCalculateLedges(FHitResult& HitResult, FTraversalCheckResult& TraversalData);
+	UFUNCTION(BlueprintCallable, Category = "Traversal")
+	void TryAndCalculateLedges(FHitResult& HitResult,
+	                           FTraversalCheckResult& TraversalData);
 
 	/**
 	 * Traces corners of an obstacle to detect edges
@@ -263,8 +272,9 @@ protected:
 	 * @param TraceLength Length of the trace
 	 * @return Structure containing detected corner information
 	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
-	FTraceCorners TraceCorners(FHitResult HitResult, const FVector TraceDirection, const float TraceLength) const;
+	UFUNCTION(BlueprintCallable, Category = "Traversal")
+	FTraceCorners TraceCorners(FHitResult HitResult, const FVector TraceDirection,
+	                           const float TraceLength) const;
 
 	/**
 	 * Traces along the plane of a hit to find ledges
@@ -274,8 +284,9 @@ protected:
 	 * @param OutHit Output hit result containing detected ledge
 	 * @return True if a ledge was detected, false otherwise
 	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
-	bool TraceAlongHitPlane(const FHitResult& HitResult, const FVector TraceDirection, const float TraceLength,
+	UFUNCTION(BlueprintCallable, Category = "Traversal")
+	bool TraceAlongHitPlane(const FHitResult& HitResult,
+	                        const FVector TraceDirection, const float TraceLength,
 	                        FHitResult& OutHit) const;
 
 	/**
@@ -284,9 +295,8 @@ protected:
 	 * @param Direction Direction to check width
 	 * @return True if the obstacle has sufficient width, false otherwise
 	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
+	UFUNCTION(BlueprintCallable, Category = "Traversal")
 	bool TraceWidth(FHitResult HitResult, const FVector Direction) const;
-
 
 	/**
 	 * Performs a capsule sweep trace in the world
@@ -299,9 +309,11 @@ protected:
 	 * @param CollisionChannel Collision channel to trace against
 	 * @return True if the trace hit something, false otherwise
 	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
-	bool SweepTrace(const UWorld* World, FHitResult& HitResult, const FVector& Start, const FVector& End,
-	                const float CapsuleRadius, const float TraceHalfHeight, ECollisionChannel CollisionChannel);
+	UFUNCTION(BlueprintCallable, Category = "Traversal")
+	bool SweepTrace(const UWorld* World, FHitResult& HitResult,
+	                const FVector& Start, const FVector& End,
+	                const float CapsuleRadius, const float TraceHalfHeight,
+	                ECollisionChannel CollisionChannel);
 
 public:
 	/**
@@ -313,11 +325,12 @@ public:
 
 	/**
 	 * Attempts to perform a traversal action based on input parameters
-	 * Performs environment detection, animation selection, and initiates traversal
+	 * Performs environment detection, animation selection, and initiates
+	 * traversal
 	 * @param CheckInputs The inputs required to perform the traversal check
 	 * @return Result structure indicating success or failure
 	 */
-	UFUNCTION(BlueprintCallable, Category="Traversal")
+	UFUNCTION(BlueprintCallable, Category = "Traversal")
 	FTraversalResult TryTraversalAction(FTraversalCheckInputs CheckInputs);
 
 	/**
@@ -325,29 +338,83 @@ public:
 	 * Sets up motion warping and plays the appropriate montage
 	 * Can be overridden in Blueprints for custom traversal behavior
 	 */
-	UFUNCTION(BlueprintNativeEvent, Category="Traversal")
+	UFUNCTION(BlueprintNativeEvent, Category = "Traversal")
 	void PerformTraversalAction();
 
 	/**
 	 * Replicates traversal actions from client to server
 	 * @param TraversalRep The traversal result data to be replicated
 	 */
-	UFUNCTION(Reliable, Server, Category="Traversal")
+	UFUNCTION(Reliable, Server, Category = "Traversal")
 	void Server_Traversal(FTraversalCheckResult TraversalRep);
-	UFUNCTION(Reliable, NetMulticast, Category="Traversal")
+	UFUNCTION(Reliable, NetMulticast, Category = "Traversal")
 	void Multicast_Traversal(FTraversalCheckResult TraversalRep);
 
 	/**
 	 * Checks whether the character is currently performing a traversal action
 	 * @return True if the character is in a traversal action, false otherwise
 	 */
-	UFUNCTION(BlueprintPure, Category="Traversal")
+	UFUNCTION(BlueprintPure, Category = "Traversal")
 	bool IsDoingTraversal() const;
 
 	UPROPERTY(BlueprintAssignable)
 	FOnTraversalEventDelegate OnTraversalEvent;
-private:
 
+protected:
+	/**
+	 * Detects the initial obstacle in front of the character
+	 * @param CheckInputs Traversal check parameters
+	 * @param StartLocation Origin of the trace
+	 * @param OutHit Hit result of the trace
+	 * @return True if a valid obstacle is hit
+	 */
+	bool DetectObstacle(const FTraversalCheckInputs& CheckInputs,
+	                    const FVector& StartLocation, FHitResult& OutHit);
+
+	/**
+	 * Verifies if there's enough room for the character to move to the front
+	 * ledge
+	 * @param ActorLocation Current character location
+	 * @param TraversalData Accumulated traversal data to update
+	 * @param CapsuleRadius Character's capsule radius
+	 * @param CapsuleHalfHeight Character's capsule half-height
+	 * @param OutCheckLocation Location calculated for front ledge clearance
+	 * @return True if there's clearance
+	 */
+	bool VerifyFrontLedgeClearance(const FVector& ActorLocation,
+	                               FTraversalCheckResult& TraversalData,
+	                               float CapsuleRadius, float CapsuleHalfHeight,
+	                               FVector& OutCheckLocation);
+
+	/**
+	 * Analyzes the top and back dimensions of the obstacle (depth, back floor)
+	 * @param TraversalData Accumulated traversal data to update
+	 * @param HasRoomCheckFrontLedgeLocation Top check start location
+	 * @param CapsuleRadius Character's capsule radius
+	 * @param CapsuleHalfHeight Character's capsule half-height
+	 */
+	void AnalyzeObstacleDimensions(FTraversalCheckResult& TraversalData,
+	                               const FVector& HasRoomCheckFrontLedgeLocation,
+	                               float CapsuleRadius, float CapsuleHalfHeight);
+
+	/**
+	 * Evaluates and selects the appropriate traversal montage using the Chooser
+	 * Table
+	 * @param TraversalData Accumulated traversal data to update and read from
+	 * @return True if a valid montage is found and selected
+	 */
+	bool SelectTraversalMontage(FTraversalCheckResult& TraversalData);
+
+#if WITH_EDITOR
+	/** Draws debug shapes for discovered ledges */
+	void DrawDebugLedges(const FTraversalCheckResult& TraversalData) const;
+
+	/** Draws on-screen performance and result metrics for traversal check */
+	void DrawDebugPerformance(const FTraversalCheckResult& TraversalData,
+	                          double StartTime) const;
+#endif
+
+private:
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AGASPCharacter> CharacterOwner{};
 
@@ -364,5 +431,5 @@ private:
 	TWeakObjectPtr<USkeletalMeshComponent> MeshComponent{};
 
 	UPROPERTY(Transient)
-	TWeakObjectPtr<UGASPAnimInstance> AnimInstance{};
+	TWeakObjectPtr<UAnimInstance> AnimInstance{};
 };
