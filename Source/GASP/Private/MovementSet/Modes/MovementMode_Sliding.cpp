@@ -1,6 +1,8 @@
 #include "MovementSet/Modes/MovementMode_Sliding.h"
 #include "MoverComponent.h"
+#include "TimerManager.h"
 #include "DefaultMovementSet/Settings/StanceSettings.h"
+#include "Engine/World.h"
 #include "MovementSet/Transitions/MovementModeTransition_FromSlide.h"
 #include "Types/MovementTypes.h"
 
@@ -23,10 +25,9 @@ UMovementMode_Sliding::UMovementMode_Sliding(const FObjectInitializer& ObjectIni
 }
 
 void UMovementMode_Sliding::GenerateWalkMove_Implementation(FMoverTickStartData& StartState, float DeltaSeconds,
-                                                            const FVector& DesiredVelocity, const FQuat& DesiredFacing,
-                                                            const FQuat& CurrentFacing,
-                                                            FVector& InOutAngularVelocityDegrees,
-                                                            FVector& InOutVelocity)
+												 const FMoverSimContext& SimContext, const FVector& DesiredVelocity,
+												 const FQuat& DesiredFacing, const FQuat& CurrentFacing,
+												 FVector& InOutAngularVelocityDegrees, FVector& InOutVelocity)
 {
 	const auto* CharacterInputs = StartState.InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>();
 
@@ -67,11 +68,13 @@ void UMovementMode_Sliding::GenerateWalkMove_Implementation(FMoverTickStartData&
 	                                                               {FlatGroundDeceleration, SteepSlopeDeceleration},
 	                                                               SlopeAngle);
 
-	Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, DesiredVelocity, OverridenDesiredFacing,
+	Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, SimContext, DesiredVelocity, OverridenDesiredFacing,
 	                                       CurrentFacing, InOutAngularVelocityDegrees, InOutVelocity);
 }
 
-void UMovementMode_Sliding::Activate()
+void UMovementMode_Sliding::Activate(const FMoverEventContext& Context, FName PrevModeName, const FMoverSimContext& SimContext,
+						  const FMoverTickStartData& StartState, FMoverSyncState* OutSyncState,
+						  FMoverAuxStateContext* OutAuxState)
 {
 	InitialBoost = true;
 	FTimerHandle TimerHandle;
@@ -80,5 +83,5 @@ void UMovementMode_Sliding::Activate()
 		InitialBoost = false;
 	}), InitialBoostTime, false);
 
-	Super::Activate();
+	Super::Activate(Context, PrevModeName, SimContext, StartState, OutSyncState, OutAuxState);
 }

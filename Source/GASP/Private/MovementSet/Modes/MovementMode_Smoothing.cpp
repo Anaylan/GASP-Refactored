@@ -2,19 +2,33 @@
 #include "MoverComponent.h"
 #include "Animation/SpringMath.h"
 #include "DefaultMovementSet/Settings/CommonLegacyMovementSettings.h"
+#include "MoveLibrary/RollbackBlackboardLibrary.h"
 #include "MovementSet/Modes/WalkingState_Smooth.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MovementMode_Smoothing)
 
+const FName UMovementMode_Smoothing::DidGenerateMoveEntry = TEXT("DidGenerateMove");
 
-void UMovementMode_Smoothing::GenerateMove_Implementation(const FMoverTickStartData& StartState,
+void UMovementMode_Smoothing::OnRegistered(const FName ModeName, const FMoverSimContext& SimContext)
+{
+	Super::OnRegistered(ModeName, SimContext);
+
+	URollbackBlackboard::EntrySettings DidGenerateMoveEntrySettings =
+		URollbackBlackboardLibrary::MakeSingleFrameEntrySettings();
+	DidGenerateMoveEntrySettings.PersistencePolicy = EBlackboardPersistencePolicy::ThroughNextFrame;
+
+	SimContext.Blackboard.CreateEntry<bool>(DidGenerateMoveEntry, DidGenerateMoveEntrySettings);
+}
+
+void UMovementMode_Smoothing::GenerateMove_Implementation(const FMoverSimContext& SimContext,
+                                                          const FMoverTickStartData& StartState,
                                                           const FMoverTimeStep& TimeStep,
                                                           FProposedMove& OutProposedMove) const
 {
 	const FMoverDefaultSyncState* StartingSyncState = StartState.SyncState.SyncStateCollection.FindDataByType<
 		FMoverDefaultSyncState>();
 
-	if (CommonLegacySettings.Get() == nullptr || !StartingSyncState)
+	if (!StartingSyncState)
 	{
 		return;
 	}
@@ -45,16 +59,25 @@ void UMovementMode_Smoothing::GenerateMove_Implementation(const FMoverTickStartD
 		MoveInputType = EMoveInputType::DirectionalIntent;
 		DesiredFacingDir = StartingSyncState->GetOrientation_WorldSpace().Quaternion().GetForwardVector();
 	}
-	float MaxMoveSpeed = MaxSpeedOverride >= 0.0f ? MaxSpeedOverride : CommonLegacySettings->MaxSpeed;
+
+	const bool bHasMaxMoveSpeed = MaxSpeedOverride >= 0.0f || CommonLegacySettings;
+	float MaxMoveSpeed = MaxSpeedOverride >= 0.0f
+		                     ? MaxSpeedOverride
+		                     : (CommonLegacySettings ? CommonLegacySettings->MaxSpeed : 0.0f);
+
+	const UMoverComponent* MoverComponent = GetMoverComponent();
+	const FVector UpVector = MoverComponent ? MoverComponent->GetUpDirection() : FVector::UpVector;
 
 	// Subtract vertical component but keep same magnitude
 	float DesiredVelMag = DesiredVelocity.Length();
-	DesiredVelocity -= DesiredVelocity.ProjectOnTo(GetMoverComponent()->GetUpDirection());
+	DesiredVelocity -= DesiredVelocity.ProjectOnTo(UpVector);
 	float DesiredVel2DSquaredLength = DesiredVelocity.SquaredLength();
 	if (DesiredVel2DSquaredLength > 0.0f)
 	{
 		DesiredVelocity *= DesiredVelMag / FMath::Sqrt(DesiredVel2DSquaredLength);
 	}
+
+	const float DefaultDirectionalIntentSpeed = 100.0f;
 
 	switch (MoveInputType)
 	{
@@ -62,13 +85,15 @@ void UMovementMode_Smoothing::GenerateMove_Implementation(const FMoverTickStartD
 		{
 			OutProposedMove.DirectionIntent = DesiredVelocity;
 			// here, DesiredVelocity is already in "intent space" (unit length for "max intent") so we can use it directly
-			DesiredVelocity *= MaxMoveSpeed;
+			DesiredVelocity = bHasMaxMoveSpeed
+				                  ? DesiredVelocity * MaxMoveSpeed
+				                  : DesiredVelocity * DefaultDirectionalIntentSpeed;
 		}
 		break;
 	case EMoveInputType::Velocity:
 		{
 			// Clamp to max move speed
-			DesiredVelocity = DesiredVelocity.GetClampedToMaxSize(MaxMoveSpeed);
+			DesiredVelocity = bHasMaxMoveSpeed ? DesiredVelocity.GetClampedToMaxSize(MaxMoveSpeed) : DesiredVelocity;
 			OutProposedMove.DirectionIntent = MaxMoveSpeed > UE_KINDA_SMALL_NUMBER
 				                                  ? DesiredVelocity / MaxMoveSpeed
 				                                  : FVector::ZeroVector;
@@ -79,7 +104,8 @@ void UMovementMode_Smoothing::GenerateMove_Implementation(const FMoverTickStartD
 	case EMoveInputType::Invalid:
 	default:
 		{
-			UE_LOG(LogMover, Warning, TEXT("Unhandled MoveInputType %i in USpringWalkingMode"), MoveInputType);
+			UE_LOGF(LogMover, Warning, "Unhandled MoveInputType %i in USimpleWalkingMode",
+			        EnumToUnderlyingType(MoveInputType));
 			DesiredVelocity = FVector::ZeroVector;
 			OutProposedMove.DirectionIntent = FVector::ZeroVector;
 		}
@@ -87,7 +113,7 @@ void UMovementMode_Smoothing::GenerateMove_Implementation(const FMoverTickStartD
 	}
 
 	OutProposedMove.bHasDirIntent = !OutProposedMove.DirectionIntent.IsNearlyZero();
-	DesiredFacingDir -= DesiredFacingDir.ProjectOnTo(GetMoverComponent()->GetUpDirection());
+	DesiredFacingDir -= DesiredFacingDir.ProjectOnTo(UpVector);
 	FQuat CurrentFacing = StartingSyncState->GetOrientation_WorldSpace().Quaternion();
 	FQuat DesiredFacing = CurrentFacing;
 
@@ -97,18 +123,17 @@ void UMovementMode_Smoothing::GenerateMove_Implementation(const FMoverTickStartD
 	}
 
 	OutProposedMove.LinearVelocity = StartingSyncState->GetVelocity_WorldSpace();
-	FVector AngularVelocityDegrees = StartingSyncState->GetAngularVelocityDegrees_WorldSpace();
+	OutProposedMove.AngularVelocityDegrees = StartingSyncState->GetAngularVelocityDegrees_WorldSpace();
 
 	// Hack const_cast stuff
 	// Why is this needed?
 	// Because some modes want to mutate their data inside the generate walk move
 	auto* MutableSimpleWalkMode = const_cast<UMovementMode_Smoothing*>(this);
-	MutableSimpleWalkMode->GenerateWalkMove(const_cast<FMoverTickStartData&>(StartState), DeltaSeconds, DesiredVelocity,
-	                                        DesiredFacing, CurrentFacing, AngularVelocityDegrees,
-	                                        OutProposedMove.LinearVelocity);
+	MutableSimpleWalkMode->GenerateWalkMove(const_cast<FMoverTickStartData&>(StartState), DeltaSeconds, SimContext,
+	                                        DesiredVelocity, DesiredFacing, CurrentFacing,
+	                                        OutProposedMove.AngularVelocityDegrees, OutProposedMove.LinearVelocity);
 
-	// Calc angular velocity from final facing
-	OutProposedMove.AngularVelocityDegrees = AngularVelocityDegrees;
+	SimContext.Blackboard.TrySet(DidGenerateMoveEntry, true);
 }
 
 void UMovementMode_Smoothing::SimulationTick_Implementation(const FSimulationTickParams& Params,
@@ -116,17 +141,16 @@ void UMovementMode_Smoothing::SimulationTick_Implementation(const FSimulationTic
 {
 	Super::SimulationTick_Implementation(Params, OutputState);
 
-	// We've already updated the spring state during GenerateMove, and just need to copy it into the output simulation state
-	if (const auto* InSpringState = Params.StartState.SyncState.SyncStateCollection.FindDataByType<
-		FWalkingState_Smooth>())
+	// If we've created or updated the spring state during GenerateWalkMove, we need to copy it into the output simulation state. 
+	if (const auto* InSpringState = Params.StartState.SyncState.SyncStateCollection.FindDataByType<FWalkingState_Smooth>())
 	{
-		auto& OutputSpringState = OutputState.SyncState.SyncStateCollection.FindOrAddMutableDataByType<
-			FWalkingState_Smooth>();
+		auto& OutputSpringState = OutputState.SyncState.SyncStateCollection.FindOrAddMutableDataByType<FWalkingState_Smooth>();
 		OutputSpringState = *InSpringState;
 	}
 }
 
 void UMovementMode_Smoothing::GenerateWalkMove_Implementation(FMoverTickStartData& StartState, float DeltaSeconds,
+                                                              const FMoverSimContext& SimContext,
                                                               const FVector& DesiredVelocity,
                                                               const FQuat& DesiredFacing, const FQuat& CurrentFacing,
                                                               FVector& InOutAngularVelocityDegrees,
@@ -136,23 +160,24 @@ void UMovementMode_Smoothing::GenerateWalkMove_Implementation(FMoverTickStartDat
 	{
 		return;
 	}
-
-	const FMoverDefaultSyncState* StartingSyncState = StartState.SyncState.SyncStateCollection.FindDataByType<
-		FMoverDefaultSyncState>();
+	
+	const FMoverDefaultSyncState* StartingSyncState = StartState.SyncState.SyncStateCollection.FindDataByType<FMoverDefaultSyncState>();
 	if (!ensure(StartingSyncState))
 	{
 		return;
 	}
 
 	// Find or add a FSmoothWalkingState to the SyncState
-	bool bSmoothWalkingStateAdded = false;
-	auto& SpringState = StartState.SyncState.SyncStateCollection.FindOrAddMutableDataByType<FWalkingState_Smooth>(
-		bSmoothWalkingStateAdded);
+	bool bIsSmoothWalkingStateNew = false;
+	auto& SpringState = StartState.SyncState.SyncStateCollection.FindOrAddMutableDataByType<FWalkingState_Smooth>(bIsSmoothWalkingStateNew);
 
-	// If the state was not there already we need to initialize some of the intermediate state to whatever we have as the current state to avoid 
+	bool bDidGenerateMoveSinceLastFrame = false;
+	SimContext.Blackboard.TryGet(DidGenerateMoveEntry, bDidGenerateMoveSinceLastFrame);
+
+	// If the state was not there already or is stale, we need to initialize some of the intermediate state to whatever we have as the current state to avoid 
 	// a discontinuity. Unfortunately there is no way currently to initialize the angular velocities or accelerations right now as these are not 
 	// carried between movement modes in FMoverDefaultSyncState.
-	if (bSmoothWalkingStateAdded)
+	if (bIsSmoothWalkingStateNew || !bDidGenerateMoveSinceLastFrame)
 	{
 		SpringState.SpringVelocity = InOutVelocity;
 		SpringState.SpringAcceleration = FVector::ZeroVector;
@@ -163,14 +188,13 @@ void UMovementMode_Smoothing::GenerateWalkMove_Implementation(FMoverTickStartDat
 
 	// We can compute the degree to which the internal velocity matches the actual velocity by projecting the spring velocity onto the actual velocity 
 	// which we moved last frame. This gives a number between 0 and 1 which says how different our velocity was from what we expected.
-	const float VelocityMatch = FMath::Clamp(SpringState.SpringVelocity.Dot(InOutVelocity) /
-	                                         FMath::Max(InOutVelocity.Length() * SpringState.SpringVelocity.Length(),
-	                                                    UE_SMALL_NUMBER), 0.0f, 1.0f);
+	const float VelocityMatch = FMath::Clamp(SpringState.SpringVelocity.Dot(InOutVelocity) / 
+		FMath::Max(InOutVelocity.Length() * SpringState.SpringVelocity.Length(), UE_SMALL_NUMBER), 0.0f, 1.0f);
 
 	// If our velocity was very different from what we expected then we can effectively "reset" the intermediate velocity in a smooth way towards it. 
 	// This removes any velocity we may have built-up in the intermediate spring that is different from our current velocity.
-	FMath::ExponentialSmoothingApprox(SpringState.IntermediateVelocity, InOutVelocity, DeltaSeconds,
-	                                  (OutsideInfluenceSmoothingTime + UE_KINDA_SMALL_NUMBER) / (1.0f - VelocityMatch));
+	FMath::ExponentialSmoothingApprox(SpringState.IntermediateVelocity, InOutVelocity, DeltaSeconds, 
+		(OutsideInfluenceSmoothingTime + UE_KINDA_SMALL_NUMBER) / (1.0f - VelocityMatch));
 
 	// Update spring velocity based on real velocity
 	SpringState.SpringVelocity = InOutVelocity;
@@ -191,21 +215,17 @@ void UMovementMode_Smoothing::GenerateWalkMove_Implementation(FMoverTickStartDat
 	// Check if we are acceleration or decelerating and work out how much lateral vs directional acceleration to apply. Note that even when the
 	// DirectionalAccelerationFactor is high Deceleration is always applied laterally. This is similar to how the default walking mode behaves.
 	const bool bIsAccelerating = (1.01f * DesiredVelocity.SquaredLength()) > SpringState.SpringVelocity.SquaredLength();
-	const float LateralAccelerationMagnitude = bIsAccelerating
-		                                           ? (1.0f - DirectionalAccelerationFactor) * Acceleration
-		                                           : Deceleration;
-	const float DirectionalAccelerationMagnitude =
-		bIsAccelerating ? DirectionalAccelerationFactor * Acceleration : 0.0f;
+	const float LateralAccelerationMagnitude =  bIsAccelerating ? (1.0f - DirectionalAccelerationFactor) * Acceleration : Deceleration;
+	const float DirectionalAccelerationMagnitude = bIsAccelerating ? DirectionalAccelerationFactor * Acceleration : 0.0f;
 
 	// Record the previous velocity length
 	const float PreviousVelocityLength = SpringState.IntermediateVelocity.Length();
-
+	
 	// Compute the desired difference in velocity
 	const FVector VelocityDifference = DesiredVelocity - SpringState.IntermediateVelocity;
 
 	// Compute the lateral acceleration moving directly toward the desired velocity
-	const FVector LateralAccelerationVector = VelocityDifference.GetSafeNormal() * FMath::Min(
-		LateralAccelerationMagnitude, VelocityDifference.Length() / FMath::Max(DeltaSeconds, UE_SMALL_NUMBER));
+	const FVector LateralAccelerationVector = VelocityDifference.GetSafeNormal() * FMath::Min(LateralAccelerationMagnitude, VelocityDifference.Length() / FMath::Max(DeltaSeconds, UE_SMALL_NUMBER));
 
 	// Compute the directional acceleration moving in the desired direction. This emulates how acceleration is applied in the default movement mode.
 	const FVector DirectionalAccelerationVector = DesiredVelocity.GetSafeNormal() * DirectionalAccelerationMagnitude;
@@ -218,10 +238,8 @@ void UMovementMode_Smoothing::GenerateWalkMove_Implementation(FMoverTickStartDat
 	// 
 	// We then clamp this velocity to make it no larger than the previous intermediate velocity or the total desired velocity this stops the 
 	// DirectionalAcceleration adding velocity to the system and infinitely speeding up the character
-	FVector NextVelocity = VelocityDifference.Dot(DesiredAcceleration * DeltaSeconds) < VelocityDifference.
-	                       SquaredLength()
-		                       ? SpringState.IntermediateVelocity + DesiredAcceleration * DeltaSeconds
-		                       : DesiredVelocity;
+	FVector NextVelocity = VelocityDifference.Dot(DesiredAcceleration * DeltaSeconds) < VelocityDifference.SquaredLength() ?
+		SpringState.IntermediateVelocity + DesiredAcceleration * DeltaSeconds : DesiredVelocity;
 
 	NextVelocity = NextVelocity.GetClampedToMaxSize(FMath::Max(PreviousVelocityLength, DesiredVelocity.Length()));
 
@@ -229,31 +247,26 @@ void UMovementMode_Smoothing::GenerateWalkMove_Implementation(FMoverTickStartDat
 	const float VelocitySmoothingTime = bIsAccelerating ? AccelerationSmoothingTime : DecelerationSmoothingTime;
 
 	// Compute the smoothing compensation based on acceleration or deceleration
-	const float VelocitySmoothingCompensation = bIsAccelerating
-		                                            ? AccelerationSmoothingCompensation
-		                                            : DecelerationSmoothingCompensation;
+	const float VelocitySmoothingCompensation = bIsAccelerating ? AccelerationSmoothingCompensation : DecelerationSmoothingCompensation;
 
 	// Get the lag associated with the current velocity smoothing time and perform the same process to estimate the velocity we need to track to
 	// avoid lagging behind
 	const float LagSeconds = DeltaSeconds + (VelocitySmoothingCompensation * VelocitySmoothingTime);
 
-	FVector TrackVelocity = VelocityDifference.Dot(DesiredAcceleration * LagSeconds) < VelocityDifference.
-	                        SquaredLength()
-		                        ? SpringState.IntermediateVelocity + DesiredAcceleration * LagSeconds
-		                        : DesiredVelocity;
+	FVector TrackVelocity = VelocityDifference.Dot(DesiredAcceleration * LagSeconds) < VelocityDifference.SquaredLength() ?
+		SpringState.IntermediateVelocity + DesiredAcceleration * LagSeconds : DesiredVelocity;
 
 	TrackVelocity = TrackVelocity.GetClampedToMaxSize(FMath::Max(PreviousVelocityLength, DesiredVelocity.Length()));
 
 	// Apply the smoothing to the track velocity - effectively tracking the intermediate velocity at the appropriate time in the future
-	SpringMath::CriticalSpringDamper(SpringState.SpringVelocity, SpringState.SpringAcceleration, TrackVelocity,
-	                                 VelocitySmoothingTime, DeltaSeconds);
+	SpringMath::CriticalSpringDamper(SpringState.SpringVelocity, SpringState.SpringAcceleration, TrackVelocity, VelocitySmoothingTime, DeltaSeconds);
 
 	// Snap the velocity to the desired velocity based on the dead-zone
 	if ((DesiredVelocity - SpringState.SpringVelocity).SquaredLength() < FMath::Square(VelocityDeadzoneThreshold))
 	{
 		// We reached our target
 		SpringState.SpringVelocity = DesiredVelocity;
-
+	
 		// If we've reached our target then also snap the acceleration to zero once it is close enough
 		if (SpringState.SpringAcceleration.SquaredLength() < FMath::Square(AccelerationDeadzoneThreshold))
 		{
@@ -273,17 +286,14 @@ void UMovementMode_Smoothing::GenerateWalkMove_Implementation(FMoverTickStartDat
 	// For controlling the facing direction we use either a spring or a double spring
 	if (bSmoothFacingWithDoubleSpring)
 	{
-		SpringMath::CriticalSpringDamperQuat(SpringState.IntermediateFacing, SpringState.IntermediateAngularVelocity,
-		                                     DesiredFacing, FacingSmoothingTime / 2.0f, DeltaSeconds);
-		SpringMath::CriticalSpringDamperQuat(UpdatedFacing, CurrentAngularVelocityRadians,
-		                                     SpringState.IntermediateFacing, FacingSmoothingTime / 2.0f, DeltaSeconds);
+		SpringMath::CriticalSpringDamperQuat(SpringState.IntermediateFacing, SpringState.IntermediateAngularVelocity, DesiredFacing, FacingSmoothingTime / 2.0f, DeltaSeconds);
+		SpringMath::CriticalSpringDamperQuat(UpdatedFacing, CurrentAngularVelocityRadians, SpringState.IntermediateFacing, FacingSmoothingTime / 2.0f, DeltaSeconds);
 	}
 	else
 	{
 		SpringState.IntermediateFacing = DesiredFacing;
 		SpringState.IntermediateAngularVelocity = CurrentAngularVelocityRadians;
-		SpringMath::CriticalSpringDamperQuat(UpdatedFacing, CurrentAngularVelocityRadians, DesiredFacing,
-		                                     FacingSmoothingTime, DeltaSeconds);
+		SpringMath::CriticalSpringDamperQuat(UpdatedFacing, CurrentAngularVelocityRadians, DesiredFacing, FacingSmoothingTime, DeltaSeconds);
 	}
 
 	// Snap the facing to the desired facing based on the dead-zone
@@ -294,15 +304,11 @@ void UMovementMode_Smoothing::GenerateWalkMove_Implementation(FMoverTickStartDat
 		// Note we don't do this normally because its better to have a consistent angular velocity
 		// If we output the angular velocity based on the updated facing every frame it can cause errors at low dt due to inaccuracy in the inverse
 		// exponential approximation inside the spring damper
-		CurrentAngularVelocityRadians = DeltaSeconds > 0.0f
-			                                ? ((CurrentFacing.Inverse() * UpdatedFacing).
-				                                GetShortestArcWith(FQuat::Identity)).ToRotationVector() / DeltaSeconds
-			                                : FVector::ZeroVector;
+		CurrentAngularVelocityRadians = DeltaSeconds > 0.0f ? ((CurrentFacing.Inverse() * UpdatedFacing).GetShortestArcWith(FQuat::Identity)).ToRotationVector() / DeltaSeconds : FVector::ZeroVector;
 		SpringState.IntermediateFacing = DesiredFacing;
 
 		// If we've reached our target then also snap the angular velocity to zero once it is close enough
-		if (CurrentAngularVelocityRadians.SquaredLength() < FMath::Square(
-			FMath::DegreesToRadians(AngularVelocityDeadzoneThreshold)))
+		if (CurrentAngularVelocityRadians.SquaredLength() < FMath::Square(FMath::DegreesToRadians(AngularVelocityDeadzoneThreshold)))
 		{
 			SpringState.IntermediateAngularVelocity = FVector::ZeroVector;
 		}

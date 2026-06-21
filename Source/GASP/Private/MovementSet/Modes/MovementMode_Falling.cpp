@@ -1,10 +1,12 @@
 #include "MovementSet/Modes/MovementMode_Falling.h"
+#include "Engine/World.h"
 #include "MoveLibrary/MovementUtils.h"
 #include "Types/MovementTypes.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MovementMode_Falling)
 
-void UMovementMode_Falling::GenerateMove_Implementation(const FMoverTickStartData& StartState,
+void UMovementMode_Falling::GenerateMove_Implementation(const FMoverSimContext& SimContext,
+                                                        const FMoverTickStartData& StartState,
                                                         const FMoverTimeStep& TimeStep,
                                                         FProposedMove& OutProposedMove) const
 {
@@ -12,8 +14,8 @@ void UMovementMode_Falling::GenerateMove_Implementation(const FMoverTickStartDat
 	const auto* StartingSyncState = StartState.SyncState.SyncStateCollection.FindDataByType<FMoverDefaultSyncState>();
 	check(StartingSyncState);
 
-	Super::GenerateMove_Implementation(StartState, TimeStep, OutProposedMove);
-
+	Super::GenerateMove_Implementation(SimContext, StartState, TimeStep, OutProposedMove);
+	
 	if (CharacterInputs)
 	{
 		auto OrientationRotation{CharacterInputs->OrientationIntent.ToOrientationRotator()};

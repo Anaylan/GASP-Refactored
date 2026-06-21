@@ -1,6 +1,8 @@
 #include "MovementSet/Modes/MovementMode_Walking.h"
 #include "MoverComponent.h"
+#include "TimerManager.h"
 #include "DefaultMovementSet/Settings/StanceSettings.h"
+#include "Engine/World.h"
 #include "MovementSet/Settings/GASPGaitSettings.h"
 #include "MovementSet/Settings/GASPStanceSettings.h"
 #include "MovementSet/Transitions/MovementModeTransition_ToSlide.h"
@@ -22,8 +24,9 @@ UMovementMode_Walking::UMovementMode_Walking(const FObjectInitializer& ObjectIni
 }
 
 void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData& StartState, float DeltaSeconds,
-                                                            const FVector& DesiredVelocity, const FQuat& DesiredFacing,
-                                                            const FQuat& CurrentFacing,
+                                                            const FMoverSimContext& SimContext,
+                                                            const FVector& DesiredVelocity,
+                                                            const FQuat& DesiredFacing, const FQuat& CurrentFacing,
                                                             FVector& InOutAngularVelocityDegrees,
                                                             FVector& InOutVelocity)
 {
@@ -89,8 +92,9 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 		                      : FMath::GetMappedRangeValueClamped<float, float>(
 			                      {90.f, 135.f}, {VelocityMapped, .2f}, FMath::Abs(YawDeg));
 
-	Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, DesiredVelocity, OverridenDesiredFacing,
-	                                       CurrentFacing, InOutAngularVelocityDegrees, InOutVelocity);
+	Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, SimContext, DesiredVelocity,
+	                                       OverridenDesiredFacing, CurrentFacing, InOutAngularVelocityDegrees,
+	                                       InOutVelocity);
 
 	if (FMath::Abs(CurrentOffset) >= 135.f)
 	{
@@ -101,9 +105,12 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 	}
 }
 
-void UMovementMode_Walking::Activate()
+void UMovementMode_Walking::Activate(const FMoverEventContext& Context, FName PrevModeName,
+                                     const FMoverSimContext& SimContext,
+                                     const FMoverTickStartData& StartState, FMoverSyncState* OutSyncState,
+                                     FMoverAuxStateContext* OutAuxState)
 {
-	Super::Activate();
+	Super::Activate(Context, PrevModeName, SimContext, StartState, OutSyncState, OutAuxState);
 
 	if (GetMoverComponent()->GetMovementModeName() == DefaultModeNames::Falling)
 	{

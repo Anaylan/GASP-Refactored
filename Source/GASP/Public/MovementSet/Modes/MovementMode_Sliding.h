@@ -23,10 +23,12 @@ public:
 
 	virtual FGameplayTag GetAssociatedTag_Implementation() override { return MovementModeTags::Slide; }
 	virtual void GenerateWalkMove_Implementation(FMoverTickStartData& StartState, float DeltaSeconds,
-	                                             const FVector& DesiredVelocity, const FQuat& DesiredFacing,
-	                                             const FQuat& CurrentFacing, FVector& InOutAngularVelocityDegrees,
-	                                             FVector& InOutVelocity) override;
-	virtual void Activate() override;
+												 const FMoverSimContext& SimContext, const FVector& DesiredVelocity,
+												 const FQuat& DesiredFacing, const FQuat& CurrentFacing,
+												 FVector& InOutAngularVelocityDegrees, FVector& InOutVelocity) override;
+	virtual void Activate(const FMoverEventContext& Context, FName PrevModeName, const FMoverSimContext& SimContext,
+						  const FMoverTickStartData& StartState, FMoverSyncState* OutSyncState,
+						  FMoverAuxStateContext* OutAuxState) override;
 
 private:
 	/** Please add a variable description */

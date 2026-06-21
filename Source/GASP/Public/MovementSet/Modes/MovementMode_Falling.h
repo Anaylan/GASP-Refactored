@@ -13,8 +13,9 @@ class GASP_API UMovementMode_Falling : public UFallingMode, public IGASPMovement
 {
 	GENERATED_BODY()
 
-public:	
-	virtual void GenerateMove_Implementation(const FMoverTickStartData& StartState, const FMoverTimeStep& TimeStep,
+public:
+	virtual void GenerateMove_Implementation(const FMoverSimContext& SimContext, const FMoverTickStartData& StartState,
+	                                         const FMoverTimeStep& TimeStep,
 	                                         FProposedMove& OutProposedMove) const override;
 	virtual FGameplayTag GetAssociatedTag_Implementation() override { return MovementModeTags::InAir; }
 };

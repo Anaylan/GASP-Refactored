@@ -231,6 +231,7 @@ FRigVMFunction_IsGameWorld_Execute()
 #endif
 }
 
+#if WITH_EDITORONLY_DATA
 const TArray<FName>& FRigVMFunction_IsGameWorld::GetControlFlowBlocks_Impl() const
 {
 	static const TArray<FName> Blocks{
@@ -241,3 +242,4 @@ const TArray<FName>& FRigVMFunction_IsGameWorld::GetControlFlowBlocks_Impl() con
 
 	return Blocks;
 }
+#endif
