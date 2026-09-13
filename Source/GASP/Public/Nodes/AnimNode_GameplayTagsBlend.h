@@ -4,9 +4,6 @@
 #include "AnimNodes/AnimNode_BlendListBase.h"
 #include "AnimNode_GameplayTagsBlend.generated.h"
 
-/**
- * 
- */
 USTRUCT()
 struct GASP_API FAnimNode_GameplayTagsBlend : public FAnimNode_BlendListBase
 {

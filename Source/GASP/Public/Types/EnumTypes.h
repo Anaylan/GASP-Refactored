@@ -34,20 +34,6 @@ enum class EMovementDirectionBias : uint8
 	RightFootForward UMETA(DisplayName = "RightFootForward")
 };
 
-UENUM(BlueprintType, meta = (ScriptName = "EStateMachineState"))
-enum class EStateMachineState : uint8
-{
-	IdleLoop UMETA(DisplayName = "Idle Loop"),
-	TransitionToIdleLoop UMETA(DisplayName = "Transition to Idle Loop"),
-	LocomotionLoop UMETA(DisplayName = "Locomotion Loop"),
-	TransitionToLocomotionLoop UMETA(DisplayName = "Transition to Locomotion Loop"),
-	InAirLoop UMETA(DisplayName = "In Air Loop"),
-	TransitionToInAirLoop UMETA(DisplayName = "Transition to In Air Loop"),
-	IdleBreak UMETA(DisplayName = "Idle Break"),
-	TransitionToSlide UMETA(DisplayName = "Transition to Slide"),
-	SlideLoop UMETA(DisplayName = "Slide Loop"),
-};
-
 // Anim notifies
 UENUM(BlueprintType, meta = (ScriptName = "EEarlyTransitionCondition"))
 enum class EEarlyTransitionCondition : uint8

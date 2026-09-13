@@ -1,15 +1,16 @@
 #include "Components/GASPTraversalComponent.h"
 #include "Animation/AnimInstance.h"
 #include "AnimationWarpingLibrary.h"
-#include "ChooserFunctionLibrary.h"
+#include "Utils/GASPChooserLibrary.h"
 #include "Components/CapsuleComponent.h"
 #include "DefaultMovementSet/CharacterMoverComponent.h"
 #include "DefaultMovementSet/LayeredMoves/AnimRootMotionLayeredMove.h"
-#include "IObjectChooser.h"
-#include "Interfaces/GASPInteractionInterface.h"
+#include "Interfaces/GASPTraversalInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "MotionWarpingComponent.h"
 #include "Actors/GASPCharacter.h"
+#include "Interfaces/GASPAnimContextInterface.h"
+#include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
 #include "MovementSet/GASPMoverComponent.h"
 #include "Settings/GASPCharacterSettings.h"
 #include "Types/TagTypes.h"
@@ -20,15 +21,13 @@
 namespace TraversalVar
 {
 	int32 DrawDebugLevel{0};
-	FAutoConsoleVariableRef
-	DrawDebugLevelStruct(TEXT("gasp.traversal.DrawDebugLevel"), DrawDebugLevel,
-	                     TEXT("debug level for traversal"), ECVF_Default);
+	FAutoConsoleVariableRef DrawDebugLevelStruct(TEXT("gasp.traversal.DrawDebugLevel"), DrawDebugLevel,
+	                                             TEXT("debug level for traversal"), ECVF_Default);
 
 	float DrawDebugDuration{0.f};
-	FAutoConsoleVariableRef
-	DrawDebugDurationStruct(TEXT("gasp.traversal.DrawDebugDuration"),
-	                        DrawDebugDuration,
-	                        TEXT("debug duration for traversal"), ECVF_Default);
+	FAutoConsoleVariableRef DrawDebugDurationStruct(TEXT("gasp.traversal.DrawDebugDuration"),
+	                                                DrawDebugDuration,
+	                                                TEXT("debug duration for traversal"), ECVF_Default);
 }
 #endif
 
@@ -40,15 +39,14 @@ namespace
 	const FName NAME_DistanceFromLedge{TEXT("Distance_From_Ledge")};
 }
 
-// Sets default values for this component's properties
 UGASPTraversalComponent::UGASPTraversalComponent()
 {
 	SetIsReplicatedByDefault(true);
 }
 
-void UGASPTraversalComponent::BeginPlay()
+void UGASPTraversalComponent::OnRegister()
 {
-	Super::BeginPlay();
+	Super::OnRegister();
 
 	CharacterOwner = Cast<AGASPCharacter>(GetOwner());
 	if (!CharacterOwner.IsValid())
@@ -64,6 +62,18 @@ void UGASPTraversalComponent::BeginPlay()
 	{
 		AnimInstance = MeshComponent->GetAnimInstance();
 	}
+}
+
+void UGASPTraversalComponent::OnUnregister()
+{
+	Super::OnUnregister();
+
+	CharacterOwner.Reset();
+	MeshComponent.Reset();
+	MotionWarpingComponent.Reset();
+	CapsuleComponent.Reset();
+	AnimInstance.Reset();
+	MoverComponent.Reset();
 }
 
 void UGASPTraversalComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -375,7 +385,7 @@ void UGASPTraversalComponent::AnalyzeObstacleDimensions(FTraversalCheckResult& T
 
 bool UGASPTraversalComponent::SelectTraversalMontage(FTraversalCheckResult& TraversalData)
 {
-	if (!AnimInstance.IsValid() || !AnimInstance->Implements<UGASPInteractionInterface>())
+	if (!AnimInstance.IsValid() || !AnimInstance->Implements<UGASPTraversalInterface>())
 	{
 		return false;
 	}
@@ -383,38 +393,32 @@ bool UGASPTraversalComponent::SelectTraversalMontage(FTraversalCheckResult& Trav
 	const auto InteractionTransform = FTransform(
 		FRotationMatrix::MakeFromZ(TraversalData.FrontLedgeNormal).ToQuat(),
 		TraversalData.FrontLedgeLocation, FVector::OneVector);
-	IGASPInteractionInterface::Execute_SetInteractionTransform(AnimInstance.Get(), InteractionTransform);
+	IGASPTraversalInterface::Execute_SetInteractionTransform(AnimInstance.Get(), InteractionTransform);
 
 	FTraversalChooserInput ChooserParameters;
 	ChooserParameters.ActionType = TraversalData.ActionType;
 	ChooserParameters.Speed = MoverComponent->GetVelocity().Size2D();
-	ChooserParameters.StateContainer = CharacterOwner->StateContainer;
+	ChooserParameters.StateContainer = CharacterOwner->GameplayTags;
 	ChooserParameters.bHasBackFloor = TraversalData.bHasBackFloor;
 	ChooserParameters.bHasBackLedge = TraversalData.bHasBackLedge;
 	ChooserParameters.bHasFrontLedge = TraversalData.bHasFrontLedge;
 	ChooserParameters.ObstacleHeight = TraversalData.ObstacleHeight;
 	ChooserParameters.ObstacleDepth = TraversalData.ObstacleDepth;
 	ChooserParameters.BackLedgeHeight = TraversalData.BackLedgeHeight;
-	ChooserParameters.PoseHistory = IGASPInteractionInterface::Execute_GetPoseHistory(AnimInstance.Get());
+	ChooserParameters.PoseHistory = IGASPAnimContextInterface::Execute_GetPoseHistory(AnimInstance.Get());
 	ChooserParameters.DistanceToLedge = FVector::Dist(TraversalData.FrontLedgeLocation,
 	                                                  MeshComponent->GetComponentLocation());
 
 	FTraversalChooserOutput ChooserOutput;
-	auto Context = UChooserFunctionLibrary::MakeChooserEvaluationContext();
+	auto* ChooserTable = CharacterOwner->GetSettings()->TraversalTable.LoadSynchronous();
 
-	Context.AddStructParam(ChooserParameters);
-	Context.AddStructParam(ChooserOutput);
-
-	auto ChooserTable = CharacterOwner->GetSettings()->TraversalTable.LoadSynchronous();
-	auto AnimationMontage{
-		UChooserFunctionLibrary::EvaluateObjectChooserBase(
-			Context, UChooserFunctionLibrary::MakeEvaluateChooser(ChooserTable),
-			UAnimMontage::StaticClass())
+	auto* AnimationMontage{
+		FGASPChooserUtils::EvaluateSingle<UAnimMontage>(ChooserTable, ChooserParameters, ChooserOutput)
 	};
 
 	TraversalData.ActionType = ChooserOutput.ActionType;
 	TraversalData.StartTime = ChooserOutput.MontageStartTime;
-	TraversalData.ChosenMontage = static_cast<UAnimMontage*>(AnimationMontage);
+	TraversalData.ChosenMontage = AnimationMontage;
 	TraversalData.PlayRate = 1.f;
 
 	return TraversalData.ActionType != FGameplayTag::EmptyTag;
@@ -497,6 +501,7 @@ void UGASPTraversalComponent::OnCompleteTraversal(FName NotifyName)
 	bDoingTraversalAction = false;
 	CapsuleComponent->IgnoreComponentWhenMoving(TraversalCheckResult.HitComponent,
 	                                            false);
+	MeshComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
 
 	const auto MovementMode{
 		TraversalCheckResult.ActionType ==
@@ -506,7 +511,7 @@ void UGASPTraversalComponent::OnCompleteTraversal(FName NotifyName)
 	};
 	MoverComponent->QueueNextMode(MovementMode);
 
-	OnTraversalEvent.Broadcast(ETraversalEventType::Done);
+	OnTraversalEnded.Broadcast();
 }
 
 void UGASPTraversalComponent::PerformTraversalAction_Implementation()
@@ -514,69 +519,48 @@ void UGASPTraversalComponent::PerformTraversalAction_Implementation()
 	UpdateWarpTargets();
 
 	auto* MontageToPlay{const_cast<UAnimMontage*>(TraversalCheckResult.ChosenMontage.Get())};
-	float MontageDuration{
-		AnimInstance->Montage_Play(MontageToPlay, TraversalCheckResult.PlayRate, EMontagePlayReturnType::MontageLength,
-		                           TraversalCheckResult.StartTime)
-	};
-
-	FOnMontageBlendingOutStarted BlendedOutEndedDelegate;
-	BlendedOutEndedDelegate.BindWeakLambda(this, [this](UAnimMontage* Montage, bool bInterrupted)
+	if (!MontageToPlay)
 	{
-		if (bInterrupted)
-		{
-			OnCompleteTraversal(NAME_None);
-		}
-	});
-	AnimInstance->Montage_SetBlendingOutDelegate(BlendedOutEndedDelegate,
-	                                             MontageToPlay);
-
-	FOnMontageEnded EndedDelegate;
-	EndedDelegate.BindWeakLambda(this, [this](UAnimMontage* Montage, bool bInterrupted)
-	{
-		if (!bInterrupted)
-		{
-			OnCompleteTraversal(NAME_None);
-		}
-	});
-	AnimInstance->Montage_SetEndDelegate(EndedDelegate, MontageToPlay);
-
-	if (auto* MontageInstance = AnimInstance->GetActiveInstanceForMontage(MontageToPlay); MontageDuration > 0.f)
-	{
-		// Disable the actual animation-driven root motion, in favor of our own
-		// layered move
-		MontageInstance->PushDisableRootMotion();
-
-		const float StartingMontagePosition = MontageInstance->GetPosition();
-		// position in seconds, disregarding PlayRate
-
-		// Queue a layered move to perform the same anim root motion over the same
-		// time span
-		auto AnimRootMotionMove = MakeShared<FLayeredMove_AnimRootMotion>();
-		AnimRootMotionMove->MontageState.Montage = MontageToPlay;
-		AnimRootMotionMove->MontageState.PlayRate = TraversalCheckResult.PlayRate;
-		AnimRootMotionMove->MontageState.StartingMontagePosition = StartingMontagePosition;
-		AnimRootMotionMove->MontageState.CurrentPosition = StartingMontagePosition;
-
-		float RemainingUnscaledMontageSeconds{StartingMontagePosition};
-		if (TraversalCheckResult.PlayRate > 0.f)
-		{
-			// playing forwards, so working towards the end of the montage
-			RemainingUnscaledMontageSeconds = MontageDuration - StartingMontagePosition;
-		}
-
-		AnimRootMotionMove->DurationMs = (RemainingUnscaledMontageSeconds / FMath::Abs(TraversalCheckResult.PlayRate)) *
-			1000.f;
-
-		MoverComponent->QueueLayeredMove(AnimRootMotionMove);
+		return;
 	}
 
-	bDoingTraversalAction = true;
-	CapsuleComponent->IgnoreComponentWhenMoving(TraversalCheckResult.HitComponent,
-	                                            true);
+	auto Proxy{
+		UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
+			MoverComponent.Get(), MontageToPlay, TraversalCheckResult.PlayRate, TraversalCheckResult.StartTime)
+	};
+	if (Proxy)
+	{
+		FOnMontageBlendingOutStarted BlendedOutEndedDelegate;
+		BlendedOutEndedDelegate.BindWeakLambda(this, [this](UAnimMontage* Montage, bool bInterrupted)
+		{
+			if (bInterrupted)
+			{
+				OnCompleteTraversal(NAME_None);
+			}
+		});
+		AnimInstance->Montage_SetBlendingOutDelegate(BlendedOutEndedDelegate,
+		                                             MontageToPlay);
 
-	MoverComponent->QueueNextMode(DefaultModeNames::Flying);
+		FOnMontageEnded EndedDelegate;
+		EndedDelegate.BindWeakLambda(this, [this](UAnimMontage* Montage, bool bInterrupted)
+		{
+			if (!bInterrupted)
+			{
+				OnCompleteTraversal(NAME_None);
+			}
+		});
+		AnimInstance->Montage_SetEndDelegate(EndedDelegate, MontageToPlay);
 
-	OnTraversalEvent.Broadcast(ETraversalEventType::Triggered);
+		bDoingTraversalAction = true;
+		CapsuleComponent->IgnoreComponentWhenMoving(TraversalCheckResult.HitComponent,
+		                                            true);
+
+		MeshComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
+
+		MoverComponent->QueueNextMode(DefaultModeNames::Flying);
+
+		OnTraversalStarted.Broadcast();
+	}
 }
 
 void UGASPTraversalComponent::Server_Traversal_Implementation(
@@ -591,8 +575,7 @@ void UGASPTraversalComponent::Multicast_Traversal_Implementation(const FTraversa
 	PerformTraversalAction();
 }
 
-FComputeLedgeData
-UGASPTraversalComponent::ComputeLedgeData(FHitResult& HitResult) const
+FComputeLedgeData UGASPTraversalComponent::ComputeLedgeData(FHitResult& HitResult) const
 {
 	HitResult.ImpactPoint -= (HitResult.ImpactPoint - FVector::PointPlaneProject(
 		HitResult.GetComponent()->Bounds.Origin, HitResult.ImpactPoint, HitResult.ImpactNormal)).GetSafeNormal();
@@ -675,8 +658,8 @@ void UGASPTraversalComponent::TryAndCalculateLedges(FHitResult& HitResult, FTrav
 	TraversalData.BackLedgeNormal = EndLedgeNormal;
 }
 
-FTraceCorners
-UGASPTraversalComponent::TraceCorners(FHitResult HitResult, const FVector TraceDirection, const float TraceLength) const
+FTraceCorners UGASPTraversalComponent::TraceCorners(FHitResult HitResult, const FVector TraceDirection,
+                                                    const float TraceLength) const
 {
 	if (auto OutHit = HitResult; TraceAlongHitPlane(HitResult, TraceDirection, TraceLength, OutHit))
 	{

@@ -3,9 +3,6 @@
 #include "GameplayTagContainer.h"
 #include "GASPFoleyAudioBankInterface.generated.h"
 
-/**
- * 
- */
 UINTERFACE()
 class UGASPFoleyAudioBankInterface : public UInterface
 {

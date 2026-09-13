@@ -15,9 +15,6 @@ struct FComputeHipTarget_FootData
 	FRigElementKey ToeControl;
 };
 
-/**
- * 
- */
 USTRUCT(DisplayName = "Compute Hip Target From Animated Feet",
 	meta = (Category = "GASP|Foot Placement", Keywords = "Compute, Hip, Pelvis, Target, Animated, Feet, Foot Placement", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ComputeHipTargetFromAnimatedFeet : public FRigUnit

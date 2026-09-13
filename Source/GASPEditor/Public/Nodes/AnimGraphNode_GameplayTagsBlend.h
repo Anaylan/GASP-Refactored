@@ -4,9 +4,6 @@
 #include "Nodes/AnimNode_GameplayTagsBlend.h"
 #include "AnimGraphNode_GameplayTagsBlend.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class GASPEDITOR_API UAnimGraphNode_GameplayTagsBlend : public UAnimGraphNode_BlendListBase
 {

@@ -3,9 +3,6 @@
 #include "Units/RigUnit.h"
 #include "RigUnit_ClampPelvisOffset.generated.h"
 
-/**
- * 
- */
 USTRUCT(DisplayName = "Clamp Pelvis Offset", meta = (Category = "GASP|Foot Placement", Keywords = "Clamp, Pelvis, Offset, Hip, Leg Length, Foot Placement", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ClampPelvisOffset : public FRigUnitMutable
 {

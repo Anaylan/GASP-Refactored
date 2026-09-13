@@ -8,8 +8,10 @@
 FTransitionEvalResult UMovementModeTransition_FromSlide::Evaluate_Implementation(
 	const FSimulationTickParams& Params) const
 {
-	if (Params.ProposedMove.LinearVelocity.Size2D() <= 200.f || !static_cast<UGASPMoverComponent*>(Params.
-		MovingComps.MoverComponent.Get())->IsCrouching())
+	const auto* MoverComponent{Cast<UGASPMoverComponent>(Params.MovingComps.MoverComponent.Get())};
+
+	// No GASP mover means no crouch state to read, so leaving the slide is the safe outcome.
+	if (!MoverComponent || Params.ProposedMove.LinearVelocity.Size2D() <= 200.f || !MoverComponent->IsCrouching())
 	{
 		return FTransitionEvalResult{DefaultModeNames::Walking};
 	}

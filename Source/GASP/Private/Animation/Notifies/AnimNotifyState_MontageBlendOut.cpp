@@ -1,4 +1,4 @@
-﻿#include "Animation/Notifies/AnimNotifyState_MontageBlendOut.h"
+#include "Animation/Notifies/AnimNotifyState_MontageBlendOut.h"
 #include "Actors/GASPCharacter.h"
 #include "Types/EnumTypes.h"
 
@@ -52,7 +52,15 @@ void UAnimNotifyState_MontageBlendOut::NotifyTick(USkeletalMeshComponent* MeshCo
 		}
 	}();
 
-	if (const auto* AnimMontage = Cast<UAnimMontage>(Animation); ShouldBlendOut)
+	const auto* AnimMontage = Cast<UAnimMontage>(Animation);
+	if (!AnimMontage)
+	{
+		// Montage_StopWithBlendSettings treats a null montage as "stop everything", so a notify
+		// sitting on a plain sequence would blend out unrelated montages.
+		return;
+	}
+
+	if (ShouldBlendOut)
 	{
 		FMontageBlendSettings BlendOutSettings{};
 		BlendOutSettings.Blend.BlendTime = BlendOutTime;

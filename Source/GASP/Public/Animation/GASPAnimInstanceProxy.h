@@ -5,12 +5,10 @@
 #include "Types/StructTypes.h"
 #include "GASPAnimInstanceProxy.generated.h"
 
+class UMoverTrajectoryPredictor;
 class AGASPCharacter;
 class UGASPMoverComponent;
 
-/**
- * 
- */
 USTRUCT()
 struct FGASPAnimInstanceProxy : public FAnimInstanceProxy
 {

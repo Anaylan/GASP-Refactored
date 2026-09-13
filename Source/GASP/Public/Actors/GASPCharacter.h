@@ -3,13 +3,15 @@
 #include "GameplayTagContainer.h"
 #include "Interfaces/GASPTargetedActor.h"
 #include "MoverSimulationTypes.h"
-#include "StructUtils/InstancedStruct.h"
+#include "Tasks/TaskDataTypes.h"
 #include "Types/EnumTypes.h"
 #include "Types/MovementTypes.h"
 #include "Types/StructTypes.h"
 #include "Types/TagTypes.h"
 #include "GASPCharacter.generated.h"
 
+class UCharacterTask_Ragdoll;
+struct FMontageBlendSettings;
 enum class EStanceMode : uint8;
 class UNavMoverComponent;
 class UGASPMoverComponent;
@@ -22,7 +24,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnGameplayTagContainerChanged, FGa
                                              OldGameplayTagContainer, FGameplayTagContainer, NewGameplayTagContainer);
 
 UCLASS()
-class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterface, public IGASPTargetedActor
+class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterface, public IGASPTargetedActor,
+                                public IGameplayTagAssetInterface, public IGameplayTaskOwnerInterface
 {
 	GENERATED_BODY()
 
@@ -32,11 +35,13 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 	/** The CapsuleComponent being used for movement collision (by CharacterMovement). Always treated as being vertically aligned in simple collision check functions. */
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	TObjectPtr<class UCapsuleComponent> CapsuleComponent;
+	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
+	TObjectPtr<class UPhysicsControlComponent> PhysicsControlComponent;
+	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
+	TObjectPtr<class UGASPOverrideModeManager> OverrideModeManager;
+	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
+	TObjectPtr<class UGASPCharacterInteractionComponent> InteractionComponent;
 
-	UPROPERTY(BlueprintGetter=GetMovementMode, ReplicatedUsing=OnRep_AllowedMovementMode, Transient)
-	FGameplayTag AllowedMovementMode{MovementModeTags::Grounded};
-	UPROPERTY(BlueprintGetter=GetStanceMode, Transient)
-	FGameplayTag AllowedStanceMode{StanceTags::Standing};
 	UPROPERTY(EditDefaultsOnly, BlueprintGetter=GetPoseMode, ReplicatedUsing=OnRep_PoseMode, Transient)
 	FGameplayTag PoseMode{PoseModeTags::Default};
 	UPROPERTY(BlueprintGetter=GetLocomotionAction, ReplicatedUsing=OnRep_LocomotionAction, Transient)
@@ -56,52 +61,58 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<class UMotionWarpingComponent> MotionWarpingComponent{};
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<class UGASPTraversalComponent> TraversalComponent{};
 
 	UPROPERTY(BlueprintReadOnly)
 	FGASPMoverInputs MoverInputs_PostSim{};
 
-	// Called when the game starts or when spawned
+	UFUNCTION()
+	void OnBasedMovementApplied(const FTransform& TransformDelta, const FMoverTimeStep& TimeStep);
+
+public:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	virtual void PostInitializeComponents() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
+	
+	
+	FName PhysicsProfileName{TEXT("")};
+
+	/**
+	 * Limbs that must not interpenetrate while the Ragdoll physics profile is active.
+	 *
+	 * Collision is enabled between every pair of distinct groups when that profile is applied and
+	 * disabled again for any other, so a biped lists two groups and a six-legged character lists
+	 * six. Bones inside a single group are left to whatever the physics asset says.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Ragdolling")
+	TArray<FGASPBodyGroup> RagdollSelfCollisionGroups;
+
+protected:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FName> PhysicsProfiles;
+	;
 	UFUNCTION()
 	virtual void OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName);
-	UFUNCTION()
-	virtual void OnStanceChanged(EStanceMode OldStance, EStanceMode NewStance);
-
-
-	UPROPERTY(BlueprintReadOnly, Replicated, Transient)
-	FVector_NetQuantize RagdollTargetLocation{ForceInit};
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "State|Character", Transient)
-	FRagdollingState RagdollingState;
 
 	// Cached to restore the mesh transform after ragdoll without assuming default values.
 	FTransform MeshRelativeTransformCache{FTransform::Identity};
-
-	UFUNCTION(BlueprintPure)
-	UAnimMontage* SelectGetUpMontage(bool bRagdollFacingUpward);
-
-protected:
+	FTransform BasedMovementDelta{FTransform::Identity};
 	UPROPERTY(BlueprintReadOnly, Category = "Input")
 	FRotator LastControlRotation{FRotator::ZeroRotator};
 
-	/** Please add a function description */
 	UFUNCTION(BlueprintPure, Category = "Traversal")
 	struct FTraversalCheckInputs GetTraversalCheckInputs() const;
 
 	UFUNCTION(BlueprintPure, Category = "Input")
 	bool HasFullMovementInput() const;
 
-	void GetMovementDirectionAddOffset(EMovementDirection& MovementDirection, float& RotationOffset);
-
-	// Entry point for input production.
-	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
+	void GetMovementDirectionAndOffset(EMovementDirection& MovementDirection, float& RotationOffset);
 
 	UPROPERTY(BlueprintReadOnly)
 	float ControlRotationRate{0.f};
@@ -115,8 +126,13 @@ protected:
 	virtual void RefreshTwinStickMode();
 	virtual void RefreshMoverState();
 
+	virtual FGameplayTagContainer BP_GetOwnedGameplayTags() const override;
+
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input", meta = (BaseStruct = "/Script/GASP.GASPInputState"))
+	FTransform GetMeshRelativeTransformCache() const { return MeshRelativeTransformCache; }
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input",
+		meta = (BaseStruct = "/Script/GASP.GASPInputState"))
 	FInstancedStruct PlayerInputState{FGASPInputState::StaticStruct()};
 
 	UPROPERTY(BlueprintReadOnly, Category=Character)
@@ -145,28 +161,25 @@ public:
 	/** Name of the MeshComponent. Use this name if you want to prevent creation of the component (with ObjectInitializer.DoNotCreateDefaultSubobject). */
 	static FName MeshComponentName;
 
-	/** Returns CapsuleComponent subobject **/
 	inline class UCapsuleComponent* GetCapsuleComponent() const { return CapsuleComponent; }
-
-	/** Name of the CapsuleComponent. */
 	static FName CapsuleComponentName;
 
-	// Accessor for the actor's movement component
 	UFUNCTION(BlueprintPure, Category = Mover)
 	UGASPMoverComponent* GetMoverComponent() const { return CharacterMotionComponent; }
 
-	// Accessor for the actor's nav movement component
 	UFUNCTION(BlueprintPure, Category = Mover)
 	UNavMoverComponent* GetNavMoverComponent() const { return NavMoverComponent; }
 
-	/** Name of the MotionWarpingComponent. */
+	UFUNCTION(BlueprintPure, Category = Warping)
+	UMotionWarpingComponent* GetMotionWarpingComponent() const { return MotionWarpingComponent; }
+
+	UFUNCTION(BlueprintPure, Category = Physics)
+	UPhysicsControlComponent* GetPhysicsControlComponent() const { return PhysicsControlComponent; }
+
 	static FName MotionWarpingComponentName;
-
-	/** Name of the CharacterMotionComponent. */
 	static FName CharacterMotionComponentName;
-
-	/** Name of the NavMoverComponent. */
 	static FName NavMoverComponentName;
+	static FName PhysicsControlComponentName;
 
 	//~ Begin INavAgentInterface Interface
 	virtual FVector GetNavAgentLocation() const override;
@@ -182,6 +195,21 @@ public:
 	{
 		return Settings;
 	}
+
+	/**
+	 * Settings accessor that is safe to dereference. Settings is an unset EditAnywhere property
+	 * by default, and PostInitializeComponents runs before the BeginPlay ensure that guards it,
+	 * so every internal read goes through here and falls back to the class defaults.
+	 */
+	const UGASPCharacterSettings* GetSettingsChecked() const;
+
+	UFUNCTION(BlueprintPure)
+	FTransform GetBasedMovementDelta() const { return BasedMovementDelta; };
+
+	virtual void GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const override;
+	virtual bool HasAllMatchingGameplayTags(const FGameplayTagContainer& TagContainer) const override;
+	virtual bool HasAnyMatchingGameplayTags(const FGameplayTagContainer& TagContainer) const override;
+	virtual bool HasMatchingGameplayTag(FGameplayTag TagToCheck) const override;
 
 protected:
 	UPROPERTY(Category = Movement, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
@@ -208,32 +236,25 @@ public:
 	FOnStateChanged StanceModeChanged;
 	UPROPERTY(BlueprintAssignable)
 	FOnStateChanged LocomotionActionChanged;
-	UPROPERTY(BlueprintAssignable)
-	FOnStateChanged MovementModeChanged;
 
 	UFUNCTION()
 	virtual void OnOverlayModeChanged(const FGameplayTagContainer OldOverlayMode,
 	                                  const FGameplayTagContainer NewOverlayMode);
 	UFUNCTION()
 	virtual void OnPoseModeChanged(const FGameplayTag OldPoseMode, const FGameplayTag NewPoseMode);
+	UFUNCTION()
+	virtual void OnMovementStateChanged(const FGameplayTag OldMovementState, const FGameplayTag NewMovementState);
 
 	TSubclassOf<UAnimInstance> GetLinkedAnimLayer(const class UChooserTable* DataTable) const;
 
-	// Sets default values for this character's properties
 	explicit AGASPCharacter(const FObjectInitializer& ObjectInitializer);
 	AGASPCharacter() = default;
 
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	/****************************
 	 *		Movement States		*
 	 ****************************/
-	UFUNCTION(BlueprintCallable)
-	void SetMovementMode(const FGameplayTag NewMovementMode, const bool bForce = false);
-
-	UFUNCTION(BlueprintCallable)
-	void SetStanceMode(const FGameplayTag NewStanceMode, const bool bForce = false);
 
 	UFUNCTION(BlueprintCallable)
 	void SetOverlayMode(const FGameplayTagContainer NewOverlayMode);
@@ -253,13 +274,9 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual bool CanSprint();
 
-	/** 
-	 */
 	UFUNCTION(BlueprintCallable, Category=Character)
 	virtual void Jump();
 
-	/** 
-	 */
 	UFUNCTION(BlueprintCallable, Category=Character)
 	virtual void StopJumping();
 
@@ -282,16 +299,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTag GetMovementMode() const
-	{
-		return AllowedMovementMode;
-	}
+	FORCEINLINE FGameplayTag GetMovementMode() const;
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTag GetStanceMode() const
-	{
-		return AllowedStanceMode;
-	}
+	FORCEINLINE FGameplayTag GetStanceMode() const;
 
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE UGASPTraversalComponent* GetTraversalComponent() const
@@ -299,42 +310,37 @@ public:
 		return TraversalComponent;
 	}
 
-	UPROPERTY(BlueprintReadOnly, Replicated)
-	FGameplayTagContainer StateContainer;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Replicated)
+	FGameplayTagContainer GameplayTags;
 
-public:
-	bool IsRagdollingAllowedToStart() const;
-
-	const FRagdollingState& GetRagdollingState() const
-	{
-		return RagdollingState;
-	}
-
-	UFUNCTION(BlueprintCallable, Category = "GASP|Character")
-	void StartRagdolling();
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_TaskStates)
+	FInstancedStructCollection TaskStates{};
 
 private:
-	UFUNCTION(Server, Reliable)
-	void ServerStartRagdolling();
-
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastStartRagdolling();
-
-	void StartRagdollingImplementation();
-
 	UFUNCTION()
 	virtual void OnRep_OverlayMode(const FGameplayTagContainer& OldOverlayMode);
 	UFUNCTION()
 	virtual void OnRep_PoseMode(const FGameplayTag& OldPoseMode);
 	UFUNCTION()
-	virtual void OnRep_AllowedMovementMode(const FGameplayTag& OldMovementMode);
-	UFUNCTION()
 	virtual void OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAction);
+	UFUNCTION()
+	virtual void OnRep_TaskStates(const FInstancedStructCollection& OldTaskStates);
 
+	// Ragdoll
 public:
-	bool IsRagdollingAllowedToStop() const;
+	UFUNCTION(BlueprintPure, Category = "GASP|Ragdoll")
+	bool IsRagdolling() const;
 
-	UFUNCTION(BlueprintCallable, Category = "GASP|Character", Meta = (ReturnDisplayName = "Success"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Replicated)
+	TObjectPtr<UCharacterTask_Ragdoll> RagdollTask;
+
+	UFUNCTION(BlueprintCallable, Category = "GASP|Character", meta = (AutoCreateRefTerm = "InjuryState"))
+	void StartRagdolling(const bool bStopActiveMontages, const FMontageBlendSettings& BlendSettings,
+	                     const FGameplayTag& InjuryState);
+
+	void SetPhysicsProfile(const FName NewPhysicsProfileName);
+
+	UFUNCTION(BlueprintCallable, Category = "GASP|Character")
 	bool StopRagdolling();
 
 	UFUNCTION(BlueprintImplementableEvent)
@@ -344,22 +350,48 @@ public:
 
 private:
 	UFUNCTION(Server, Reliable)
+	void ServerStartRagdolling(const bool bStopActiveMontages, const FMontageBlendSettings& BlendSettings,
+	                           const FGameplayTag& InjuryState);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastStartRagdolling(const bool bStopActiveMontages, const FMontageBlendSettings& BlendSettings,
+	                              const FGameplayTag& InjuryState);
+
+	void StartRagdollingImplementation(const bool bStopActiveMontages, const FMontageBlendSettings& BlendSettings,
+	                                   const FGameplayTag& InjuryState);
+
+	UFUNCTION(Server, Reliable)
 	void ServerStopRagdolling();
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastStopRagdolling();
 
 	void StopRagdollingImplementation();
+	void TryPlayGetUpMontage();
 
-	void SetRagdollTargetLocation(const FVector& NewTargetLocation);
+	// Gameplay tasks
+public:
+	/** Finds tasks component for given GameplayTask, Task.GetGameplayTasksComponent() may not be initialized at this point! */
+	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override;
 
-	UFUNCTION(Server, Unreliable)
-	void ServerSetRagdollTargetLocation(const FVector_NetQuantize& NewTargetLocation);
+	/** Get owner of a task or default one when task is null */
+	virtual AActor* GetGameplayTaskOwner(const UGameplayTask* Task) const override;
 
-	// TODO: maybe we should move this method to the mover component
-	void RefreshRagdolling(float DeltaTime);
+	/** Get "body" of task's owner / default, having location in world (e.g. Owner = AIController, Avatar = Pawn) */
+	virtual AActor* GetGameplayTaskAvatar(const UGameplayTask* Task) const override
+	{
+		return GetGameplayTaskOwner(Task);
+	}
 
-	FVector RagdollTraceGround(bool& bGrounded) const;
+	/** Get default priority for running a task */
+	virtual uint8 GetGameplayTaskDefaultPriority() const override { return FGameplayTasks::DefaultPriority; }
 
-	void ConstraintRagdollSpeed() const;
+	/** Notify called after GameplayTask finishes initialization (not active yet) */
+	virtual void OnGameplayTaskInitialized(UGameplayTask& Task) override;
+
+	/** Notify called after GameplayTask changes state to Active (initial activation or resuming) */
+	virtual void OnGameplayTaskActivated(UGameplayTask& Task) override;
+
+	/** Notify called after GameplayTask changes state from Active (finishing or pausing) */
+	virtual void OnGameplayTaskDeactivated(UGameplayTask& Task) override;
 };

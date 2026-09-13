@@ -20,9 +20,6 @@ struct FGASPFoleyOut
 	TObjectPtr<UNiagaraComponent> NiagaraComponent{};
 };
 
-/**
- * 
- */
 UCLASS()
 class GASP_API UGASPFoleyWorldSubsystem : public UWorldSubsystem
 {
@@ -41,7 +38,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Foley")
 	UAudioComponent* SpawnSound(const USkinnedMeshComponent* Mesh,
 	                            const struct FGASPFootstepSoundSettings& SoundSettings,
-	                            const FVector& FootstepLocation, const float VolumeMultiplier = 1.f,
+	                            const FVector& FootstepLocation, const FRotator& FootstepRotation,
+	                            const float VolumeMultiplier = 1.f,
 	                            const float PitchMultiplier = 1.f) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Foley")

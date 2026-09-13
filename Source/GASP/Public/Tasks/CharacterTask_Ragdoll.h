@@ -3,7 +3,7 @@
 #include "CharacterTask.h"
 #include "Animation/AnimMontage.h"
 #include "Types/StructTypes.h"
-#include "RagdollTask.generated.h"
+#include "CharacterTask_Ragdoll.generated.h"
 
 class UChooserTable;
 class AGASPCharacter;
@@ -33,29 +33,33 @@ struct GASP_API FGASPGetUpOutput
 	float MontageStartTime{0.f};
 };
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FCharacterRagdollSimpleSignature);
+
 /**
- * Drives one ragdoll episode: hands the mesh to Chaos, hands the capsule to
- * UMovementMode_Ragdolling, and each frame refreshes the character's FRagdollingState
- * (impact prediction, auto-roll torque, physics control strengths from anim curves).
- *
- * The task owns no ragdoll state. AGASPCharacter owns FRagdollingState; this task is
- * its sole writer while active, and only on the game thread.
+ * Drives character ragdoll episode: enables Chaos physics on skeletal mesh, transitions mover
+ * to UMovementMode_Ragdolling, and updates FRagdollingState in AGASPCharacter::TaskStates per frame.
  */
 UCLASS(Blueprintable)
-class GASP_API URagdollTask : public UCharacterTask
+class GASP_API UCharacterTask_Ragdoll : public UCharacterTask
 {
 	GENERATED_BODY()
 
 public:
-	URagdollTask();
+	UCharacterTask_Ragdoll();
 
-	UFUNCTION(BlueprintCallable, Category="Ability|Tasks",
-		meta = (AdvancedDisplay = "TaskOwner, Priority", DefaultToSelf = "TaskOwner", BlueprintInternalUseOnly = "TRUE"
-		))
-	static URagdollTask* CreateRagdollTask(TScriptInterface<IGameplayTaskOwnerInterface> TaskOwner,
-	                                       const bool bStopActiveMontages, const FMontageBlendSettings BlendSettings,
-	                                       const FGameplayTag InjuryState, UChooserTable* GetUpTable,
-	                                       const uint8 Priority = 192);
+	UPROPERTY(BlueprintAssignable)
+	FCharacterRagdollSimpleSignature OnRagdollStarted;
+
+	UPROPERTY(BlueprintAssignable)
+	FCharacterRagdollSimpleSignature OnRagdollEnded;
+
+	UFUNCTION(BlueprintCallable, Category="Tasks", meta = (AdvancedDisplay = "TaskOwner, Priority",
+		DefaultToSelf = "TaskOwner", BlueprintInternalUseOnly = "TRUE" ))
+	static UCharacterTask_Ragdoll* CreateRagdollTask(TScriptInterface<IGameplayTaskOwnerInterface> TaskOwner,
+	                                                 const bool bStopActiveMontages,
+	                                                 const FMontageBlendSettings& BlendSettings,
+	                                                 const FGameplayTag InjuryState, UChooserTable* GetUpTable,
+	                                                 const uint8 Priority = 192);
 
 protected:
 	/** Called once by the owning GameplayTasksComponent when the task is ready to run. */
@@ -73,19 +77,21 @@ private:
 	TObjectPtr<UChooserTable> GetUpTable{};
 
 private:
-	void RefreshRagdollImpactDirection() const;
-	void RefreshRagdollRollBehavior(float DeltaTime) const;
+	/** Predicts where the ragdoll will land and stores time/direction to that impact. */
+	void RefreshRagdollImpactDirection();
+
+	/** Advances the auto-roll forces and applies the resulting torque to the spine. */
+	void RefreshRagdollRollBehavior(float DeltaTime);
+
+	/** Drives PhysicsControl strengths from the Ragdoll_Strength_* anim curves. */
 	void RefreshRagdollPhysicsStrengthsFromCurves() const;
 
 	bool AreComponentsValid() const;
 
-	FRagdollingState* RagdollingState;
+	FRagdollingState RagdollingState;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<USkeletalMeshComponent> Mesh;
-
-	UPROPERTY(Transient)
-	TWeakObjectPtr<UGASPMoverComponent> MoverComponent;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<UCapsuleComponent> CapsuleComponent;
@@ -94,6 +100,7 @@ private:
 	TWeakObjectPtr<UPhysicsControlComponent> PhysicsControlComponent;
 
 	static const FName NAME_Ragdoll;
+	static const FName NAME_All;
 	static const FName NAME_CharacterMesh;
 	static const FName NAME_spine_05;
 	static const FName NAME_RagdollTrace;

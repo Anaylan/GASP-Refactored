@@ -4,11 +4,6 @@
 
 FGASPFootstepEffectsSettings* UGASPFootstepEffectsSet::GetFootstepSettingsFromSurface(const EPhysicalSurface Surface)
 {
-	if (!IsValid(this))
-	{
-		return nullptr;
-	}
-
 	return FootstepSettings.Find(Surface);
 }
 

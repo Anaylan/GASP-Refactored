@@ -3,9 +3,6 @@
 #include "DefaultMovementSet/Modes/WalkingMode.h"
 #include "MovementMode_Smoothing.generated.h"
 
-/**
- * 
- */
 UCLASS(BlueprintType, Abstract)
 class GASP_API UMovementMode_Smoothing : public UWalkingMode
 {

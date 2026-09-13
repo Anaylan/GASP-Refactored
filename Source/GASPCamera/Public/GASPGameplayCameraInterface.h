@@ -35,9 +35,6 @@ struct FCameraProperties
 	FInstancedStruct Payload{};
 };
 
-/**
- * 
- */
 UINTERFACE()
 class UGASPGameplayCameraInterface : public UInterface
 {

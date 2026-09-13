@@ -1,4 +1,5 @@
 #include "MovementSet/Modes/MovementMode_Walking.h"
+#include "GASP.h"
 #include "MoverComponent.h"
 #include "TimerManager.h"
 #include "DefaultMovementSet/Settings/StanceSettings.h"
@@ -33,15 +34,37 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 	SCOPE_CYCLE_COUNTER(STAT_GenerateWalkMove);
 
 	const auto* CharacterInputs = StartState.InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>();
+	if (!CharacterInputs)
+	{
+		// Simulated proxies replay without the GASP input struct. Fall back to the base smoothing
+		// walk move, which needs no gait or stance data.
+		Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, SimContext, DesiredVelocity,
+		                                       DesiredFacing, CurrentFacing, InOutAngularVelocityDegrees,
+		                                       InOutVelocity);
+		return;
+	}
 
-	if (const auto SharedSettings = GetMoverComponent()->FindSharedSettings<UGASPStanceSettings>())
+	UGASPGaitSettings* StanceSettings{nullptr};
+	if (SharedSettings)
 	{
 		StanceSettings = SharedSettings->StanceSettings.FindRef(CharacterInputs->Stance);
 	}
 
-	const auto* RunSettings{StanceSettings->SettingsMap.Find(GaitTags::Run)};
-	const auto* SprintSettings{StanceSettings->SettingsMap.Find(GaitTags::Sprint)};
-	const auto* CurrentSettings{StanceSettings->SettingsMap.Find(CharacterInputs->Gait)};
+	const auto* RunSettings{StanceSettings ? StanceSettings->SettingsMap.Find(GaitTags::Run) : nullptr};
+	const auto* SprintSettings{StanceSettings ? StanceSettings->SettingsMap.Find(GaitTags::Sprint) : nullptr};
+	const auto* CurrentSettings{StanceSettings ? StanceSettings->SettingsMap.Find(CharacterInputs->Gait) : nullptr};
+
+	if (!RunSettings || !SprintSettings || !CurrentSettings)
+	{
+		// The stance/gait data asset is unassigned or incomplete. Keep moving on the mode defaults
+		// instead of dereferencing null, and say which stance is missing so it can be fixed.
+		UE_LOG(LogGASP, Warning, TEXT("%s: gait settings missing for stance '%s'; using mode defaults"),
+		       *GetNameSafe(GetMoverComponent()), *CharacterInputs->Stance.ToString());
+		Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, SimContext, DesiredVelocity,
+		                                       DesiredFacing, CurrentFacing, InOutAngularVelocityDegrees,
+		                                       InOutVelocity);
+		return;
+	}
 
 	const float RunSpeed{RunSettings->MaxSpeed};
 	const float SprintSpeed{SprintSettings->MaxSpeed};
@@ -72,8 +95,29 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 		                                     CurrentOffset + 179.f))
 	};
 	const auto OverridenDesiredFacing{DesiredFacing * FQuat{FVector::UpVector, RotRad}};
-	const FVector2f SpeedRange{RunSpeed, SprintSpeed};
 
+	FVector OverridenDesiredVelocity;
+	if (GetMoverComponent()->HasGameplayTag(Mover_AnimRootMotion, false))
+	{
+		OverridenDesiredVelocity = InOutVelocity;
+	}
+	else
+	{
+		if (bSlopeRelativeVelocity)
+		{
+			FHitResult HitResult;
+			GetMoverComponent()->TryGetFloorCheckHitResult(HitResult);
+
+			OverridenDesiredVelocity = FQuat::FindBetweenNormals(FVector::UpVector, HitResult.ImpactNormal).
+				RotateVector(DesiredVelocity);
+		}
+		else
+		{
+			OverridenDesiredVelocity = DesiredVelocity;
+		}
+	}
+
+	const FVector2f SpeedRange{RunSpeed, SprintSpeed};
 	TurningStrength = FMath::GetMappedRangeValueClamped<float, float>(SpeedRange,
 	                                                                  {
 		                                                                  RunSettings->TurnStrength,
@@ -92,7 +136,7 @@ void UMovementMode_Walking::GenerateWalkMove_Implementation(FMoverTickStartData&
 		                      : FMath::GetMappedRangeValueClamped<float, float>(
 			                      {90.f, 135.f}, {VelocityMapped, .2f}, FMath::Abs(YawDeg));
 
-	Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, SimContext, DesiredVelocity,
+	Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, SimContext, OverridenDesiredVelocity,
 	                                       OverridenDesiredFacing, CurrentFacing, InOutAngularVelocityDegrees,
 	                                       InOutVelocity);
 
@@ -120,4 +164,18 @@ void UMovementMode_Walking::Activate(const FMoverEventContext& Context, FName Pr
 			bJustLanded = false;
 		}));
 	}
+}
+
+void UMovementMode_Walking::OnRegistered(const FName ModeName, const FMoverSimContext& SimContext)
+{
+	Super::OnRegistered(ModeName, SimContext);
+
+	SharedSettings = GetMoverComponent()->FindSharedSettings<UGASPStanceSettings>();
+}
+
+void UMovementMode_Walking::OnUnregistered(const FMoverSimContext& SimContext)
+{
+	SharedSettings = nullptr;
+
+	Super::OnUnregistered(SimContext);
 }

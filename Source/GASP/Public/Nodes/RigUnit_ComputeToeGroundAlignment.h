@@ -3,9 +3,6 @@
 #include "Units/RigUnit.h"
 #include "RigUnit_ComputeToeGroundAlignment.generated.h"
 
-/**
- * 
- */
 USTRUCT(DisplayName = "Compute Toe Ground Alignment",
 	meta = (Category = "GASP|Foot Placement", Keywords = "Compute, Toe, Ground, Alignment, Floor, Normal, Impact", NodeColor = "1.0 0.36 0.0"))
 struct GASP_API FRigUnit_ComputeToeGroundAlignment : public FRigUnit

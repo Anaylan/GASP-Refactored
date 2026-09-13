@@ -12,25 +12,18 @@ public class GASP : ModuleRules
 
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
-			"Core",
-			"CoreUObject",
-			"Engine",
-			"NetCore",
-			"Mover",
-			"NetworkPrediction",
-			"GameplayTags",
-			"AIModule", "PoseSearch",
-			"RigVM", "ControlRig"
+			"Core", "CoreUObject", "Engine",
+			"NetCore", "Mover", "NetworkPrediction",
+			"GameplayTags", "GameplayTasks",
+			"AIModule",
+			"PoseSearch", "RigVM", "ControlRig",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"EngineSettings",
-			"MotionTrajectory", "Chooser", "BlendStack",
-			"AnimationWarpingRuntime",
-			"PhysicsCore",
-			"AnimGraphRuntime", "Niagara",
-			"MotionWarping",
+			"MotionTrajectory", "Chooser", "BlendStack", "AnimationWarpingRuntime", "AnimGraphRuntime", "MotionWarping",
+			"PhysicsCore", "PhysicsControl", "Niagara", "Chaos",
 		});
 
 		if (Target.Type == TargetRules.TargetType.Editor)

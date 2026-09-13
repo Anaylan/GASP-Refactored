@@ -87,9 +87,6 @@ struct GASP_API FGASPFootstepEffectsSettings
 	FGASPFootstepParticleSettings ParticleSettings;
 };
 
-/**
- * 
- */
 UCLASS()
 class GASP_API UGASPFootstepEffectsSet : public UPrimaryDataAsset
 {

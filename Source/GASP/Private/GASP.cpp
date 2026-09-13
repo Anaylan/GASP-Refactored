@@ -4,27 +4,28 @@
 #include "Engine/Console.h"
 #endif
 
-#define LOCTEXT_NAMESPACE "GASPModule"
+DEFINE_LOG_CATEGORY(LogGASP);
 
 void FGASPModule::StartupModule()
 {
 #if ALLOW_CONSOLE
-	UConsole::RegisterConsoleAutoCompleteEntries.AddLambda([this](TArray<FAutoCompleteCommand>& AutoCompleteCommands)
+	AutoCompleteEntriesHandle = UConsole::RegisterConsoleAutoCompleteEntries.AddLambda(
+		[](TArray<FAutoCompleteCommand>& AutoCompleteCommands)
 	{
 		const auto CommandColor{GetDefault<UConsoleSettings>()->AutoCompleteCommandColor};
 
 		auto* Command{&AutoCompleteCommands.AddDefaulted_GetRef()};
-		Command->Command = FString{TEXTVIEW("Debug.DrawCharacterShapes")};
+		Command->Command = FString{TEXTVIEW("gasp.Debug.DrawCharacterShapes")};
 		Command->Desc = FString{TEXTVIEW("Displays debug shapes.")};
 		Command->Color = CommandColor;
 
 		Command = &AutoCompleteCommands.AddDefaulted_GetRef();
-		Command->Command = FString{TEXTVIEW("Debug.DrawCharacterStates")};
+		Command->Command = FString{TEXTVIEW("gasp.Debug.DrawCharacterStates")};
 		Command->Desc = FString{TEXTVIEW("Displays debug states.")};
 		Command->Color = CommandColor;
 
 		Command = &AutoCompleteCommands.AddDefaulted_GetRef();
-		Command->Command = FString{TEXTVIEW("Debug.DrawCharacterGraphs")};
+		Command->Command = FString{TEXTVIEW("gasp.Debug.DrawCharacterGraphs")};
 		Command->Desc = FString{TEXTVIEW("Displays debug graphs.")};
 		Command->Color = CommandColor;
 	});
@@ -34,10 +35,10 @@ void FGASPModule::StartupModule()
 void FGASPModule::ShutdownModule()
 {
 #if ALLOW_CONSOLE
-	UConsole::RegisterConsoleAutoCompleteEntries.RemoveAll(this);
+	UConsole::RegisterConsoleAutoCompleteEntries.Remove(AutoCompleteEntriesHandle);
+	AutoCompleteEntriesHandle.Reset();
 #endif
 }
 
-#undef LOCTEXT_NAMESPACE
 
 IMPLEMENT_MODULE(FGASPModule, GASP)

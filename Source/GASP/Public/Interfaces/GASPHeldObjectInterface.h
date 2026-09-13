@@ -4,9 +4,6 @@
 
 class UMeshComponent;
 
-/**
- * 
- */
 UINTERFACE()
 class UGASPHeldObjectInterface : public UInterface
 {

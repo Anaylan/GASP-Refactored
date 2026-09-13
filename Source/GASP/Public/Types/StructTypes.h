@@ -7,16 +7,13 @@ USTRUCT(BlueprintType)
 struct FAnimConfiguration
 {
 	GENERATED_BODY()
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")
 	float SpinTransitionAngle{130.f};
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Configuration")
 	float TeleportThreshold{50.f};
 };
 
-/**
- *
- */
 USTRUCT(BlueprintType)
 struct GASP_API FCharacterInfo
 {
@@ -89,9 +86,6 @@ struct GASP_API FTrajectoryInfo
 	FRotator FutureFacingOnTransitionStart{FRotator::ZeroRotator};
 };
 
-/**
- *
- */
 USTRUCT(BlueprintType)
 struct GASP_API FMotionMatchingInfo
 {
@@ -118,18 +112,13 @@ struct GASP_API FMotionMatchingInfo
 	UPROPERTY(BlueprintReadOnly)
 	float PlayRate{0.f};
 	UPROPERTY(BlueprintReadOnly)
-	float StrafeWarpAlpha{0.f};
-	UPROPERTY(BlueprintReadOnly)
-	float StrideWarpAlpha{0.f};
+	float WarpAlpha{0.f};
 	UPROPERTY(BlueprintReadOnly)
 	TWeakObjectPtr<class UAnimationAsset> AnimAsset;
 	UPROPERTY(BlueprintReadOnly)
 	uint8 bActive : 1{false};
 };
 
-/**
- *
- */
 USTRUCT(BlueprintType)
 struct GASP_API FAnimUtilityNames
 {
@@ -139,10 +128,6 @@ struct GASP_API FAnimUtilityNames
 	FName MovingTraversalCurveName{TEXT("MovingTraversal")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName EnableWarpingCurveName{TEXT("Enable_Warping")};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FName EnableStrafeWarpingName{TEXT("Enable_StrafeWarping")};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FName EnableStrideWarpingName{TEXT("Enable_StrideWarping")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName EnableTurnInPlaceSteering{TEXT("Enable_TurnInPlaceSteering")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -157,6 +142,8 @@ struct GASP_API FAnimUtilityNames
 	FName PivotsTag{TEXT("Pivots")};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FName PoseHistoryTag{TEXT("PoseHistory")};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FName BlendSpaceSlopeName{TEXT("BS_Slope")};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layering|Names")
 	FName LayeringLegsSlotName{TEXT("Layering_Legs")};
@@ -250,23 +237,55 @@ struct GASP_API FLayeringState
 	float SpineEnableRotationAmount{0.0f};
 };
 
+/** A set of physics bodies treated as one limb for self-collision purposes. */
+USTRUCT(BlueprintType)
+struct GASP_API FGASPBodyGroup
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
+	TArray<FName> BoneNames{};
+};
+
 USTRUCT(BlueprintType)
 struct GASP_API FRagdollingState
 {
 	GENERATED_BODY()
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "State|Character")
-	FVector Velocity{ForceInit};
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "State|Character", meta = (ForceUnits = "N"))
 	float PullForce{0.0f};
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character", meta = (ClampMin = 0))
-	int32 SpeedLimitFrameTimeRemaining{0};
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character",
 		meta = (ClampMin = 0, ForceUnits = "cm/s"))
-	float SpeedLimit{0.0f};
+	float Speed{0.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character")
+	FVector CenterOfMass{FVector::ZeroVector};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character")
+	FVector CenterOfMass_Velocity{FVector::ZeroVector};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character")
+	FVector CenterOfMass_LastFrame{FVector::ZeroVector};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character")
+	FVector SpineVelocity{FVector::ZeroVector};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character")
+	FVector2D ImpactDirection{FVector2D::ZeroVector};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character")
+	float TimeToImpact{0.0f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character")
+	FVector AutoRollForce{FVector::ZeroVector};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character")
+	FVector RollForce{FVector::ZeroVector};
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FName AppliedProfileName{NAME_None};
+
+	/** Injury tag the ragdoll episode was started with; forwarded to FRagdollingAnimationState. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State|Character")
+	FGameplayTag InjuryState{};
 };
 
 USTRUCT(BlueprintType)
@@ -277,11 +296,19 @@ struct GASP_API FRagdollingAnimationState
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	FPoseSnapshot FinalRagdollPose;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP", meta = (ClampMin = 0, ClampMax = 1, ForceUnits = "x"))
-	float FlailPlayRate{1.0f};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
+	float TimeToImpact{0.0f};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
+	float Speed{0.0f};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
+	float RollForceAmount{0.f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
+	FVector2D ImpactDirection{FVector2D::ZeroVector};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GASP")
+	FGameplayTag InjuryState{};
 };
-
-
 USTRUCT(BlueprintType, meta=(ToolTip = "Struct used in State Machine to drive Blend Stack inputs"))
 struct GASP_API FGASPBlendStackInputs
 {
@@ -296,6 +323,8 @@ struct GASP_API FGASPBlendStackInputs
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	float BlendTime{.0f};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
+	EAlphaBlendOption BlendCurve{EAlphaBlendOption::QuadraticInOut};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	TWeakObjectPtr<const class UBlendProfile> BlendProfile{};
 };
 
@@ -309,11 +338,9 @@ struct GASP_API FGASPChooserOutputs
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	float BlendTime{.3f};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
-	bool bUseMotionMatching{false};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
-	float MMCostLimit{.0f};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	FName BlendProfile{NAME_None};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
+	EAlphaBlendOption BlendCurve{EAlphaBlendOption::QuadraticInOut};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GASP")
 	TArray<FName> Tags;
 };

@@ -1,4 +1,4 @@
-﻿#include "GASPGameplayCameraInterface.h"
+#include "GASPGameplayCameraInterface.h"
 #include "ChooserFunctionLibrary.h"
 #include "Core/CameraRigAsset.h"
 #include "IObjectChooser.h"
@@ -44,7 +44,7 @@ UCameraRigAsset* UGASPGameplayCameraBlueprintFunctionLibrary::GetCameraRigAsset(
 				Context, UChooserFunctionLibrary::MakeEvaluateChooser(ChooserTable), UCameraRigAsset::StaticClass())
 		};
 
-		return static_cast<UCameraRigAsset*>(Result);
+		return Cast<UCameraRigAsset>(Result);
 	}
 	return nullptr;
 }

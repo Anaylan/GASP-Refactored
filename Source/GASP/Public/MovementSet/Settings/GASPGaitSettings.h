@@ -24,9 +24,6 @@ struct FGaitSettings
 	float TurnStrength{.0f};
 };
 
-/**
- * 
- */
 UCLASS(MinimalAPI, BlueprintType)
 class UGASPGaitSettings : public UDataAsset
 {

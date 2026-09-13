@@ -10,7 +10,7 @@ namespace
 	void CollectTablePaths(const UGASPCharacterSettings& Settings, TArray<FSoftObjectPath>& OutPaths)
 	{
 		OutPaths.Reset();
-		OutPaths.Reserve(4);
+		OutPaths.Reserve(6);
 
 		const auto AddIfSet = [&OutPaths](const TSoftObjectPtr<UChooserTable>& Table)
 		{
@@ -27,6 +27,8 @@ namespace
 		AddIfSet(Settings.PosesTable);
 		AddIfSet(Settings.RotationCurveTable);
 		AddIfSet(Settings.TraversalTable);
+		AddIfSet(Settings.GetUpTable);
+		AddIfSet(Settings.InteractionTable);
 	}
 }
 

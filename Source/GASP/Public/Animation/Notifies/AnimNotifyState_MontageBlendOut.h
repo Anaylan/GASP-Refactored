@@ -4,9 +4,6 @@
 #include "Types/EnumTypes.h"
 #include "AnimNotifyState_MontageBlendOut.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class GASP_API UAnimNotifyState_MontageBlendOut : public UAnimNotifyState
 {

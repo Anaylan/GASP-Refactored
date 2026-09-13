@@ -78,6 +78,11 @@ public:
 	FVector PlanePoint{ForceInit};
 	UPROPERTY(meta=(Input))
 	FVector PlaneNormal{ForceInit};
+	UPROPERTY(meta=(Input))
+	FRigElementKey SlopeAngleItem;
+
+	UPROPERTY(Transient)
+	FCachedRigElement CachedSlopeAngleItem;
 
 	UPROPERTY(meta=(Output))
 	FVector AdjustedPosition{ForceInit};
@@ -214,9 +219,6 @@ public:
 	virtual void Execute() override;
 };
 
-/**
- * 
- */
 USTRUCT(DisplayName = "Compute Unpinning Transform",
 	meta = (Category = "GASP|Foot Placement", Keywords = "Unpin, Translation, Toe, Pin, Release, Foot Placement",
 		NodeColor = "1.0 0.36 0.0"))
@@ -232,6 +234,7 @@ public:
 	UPROPERTY(meta=(Input))
 	FTransform ToePinTransformWorld{FTransform::Identity};
 
+
 	UPROPERTY(meta=(Output))
 	FVector Global{ForceInit};
 
@@ -240,9 +243,6 @@ public:
 	virtual void Execute() override;
 };
 
-/**
- * 
- */
 USTRUCT(DisplayName = "Project Z Damper To Ground Plane",
 	meta = (Category = "GASP|Foot Placement", Keywords = "Project, Z, Damper, Ground, Plane, Floor, Foot Placement",
 		NodeColor = "1.0 0.36 0.0"))
@@ -252,7 +252,7 @@ struct GASP_API FRigUnit_ProjectZDamperToGroundPlane : public FRigUnit
 
 public:
 	UPROPERTY(meta=(Input))
-	FVector WorldZPrev{ForceInit};
+	FTransform WorldZPrev{FTransform::Identity};
 	UPROPERTY(meta=(Input))
 	FVector GroundNormal{ForceInit};
 	UPROPERTY(meta=(Input))
@@ -266,9 +266,6 @@ public:
 	virtual void Execute() override;
 };
 
-/**
- * 
- */
 USTRUCT(DisplayName = "Alpha Linear Interp",
 	meta = (Category = "GASP|Math", Keywords = "Alpha, Linear, Interp, Interpolate, Lerp, Blend, Scalar", NodeColor =
 		"1.0 1.0 1.0"))
@@ -292,9 +289,6 @@ public:
 	virtual void Execute() override;
 };
 
-/**
- * 
- */
 USTRUCT(DisplayName = "Clamp Pin Yaw",
 	meta = (Category = "GASP|Foot Placement", Keywords = "Clamp, Pin, Yaw, Rotation, Foot Placement, Lock", NodeColor =
 		"1.0 0.36 0.0"))
@@ -318,9 +312,6 @@ public:
 	virtual void Execute() override;
 };
 
-/**
- *
- */
 USTRUCT(DisplayName = "Clamp Pin Distance",
 	meta = (Category = "GASP|Foot Placement", Keywords = "Clamp, Pin, Distance, Translation, Foot Placement, Lock",
 		NodeColor = "1.0 0.36 0.0"))
@@ -344,9 +335,6 @@ public:
 	virtual void Execute() override;
 };
 
-/**
- * 
- */
 USTRUCT(DisplayName = "Is Game World", DocumentationPolicy = "None",
 	meta = (Category = "GASP|Utility", Keywords = "Is, Game, World, Editor, Preview, PIE", NodeColor = "1.0 1.0 1.0"))
 struct GASP_API FRigVMFunction_IsGameWorld : public FRigVMFunction_ControlFlowBase
@@ -376,4 +364,28 @@ public:
 #if WITH_EDITORONLY_DATA
 	virtual const TArray<FName>& GetControlFlowBlocks_Impl() const override;
 #endif
+};
+
+USTRUCT(DisplayName = "Apply Ground Delta To World Transform", DocumentationPolicy = "None",
+	meta = (Category = "GASP|Utility", Keywords = "", NodeColor = "1.0 1.0 1.0"))
+struct GASP_API FRigVMFunction_ApplyGroundDeltaToWorldTransform : public FRigUnitMutable
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(meta=(Input))
+	FTransform WorldPrevTransform{FTransform::Identity};
+
+	UPROPERTY(meta=(Input))
+	FTransform GroundDelta{FTransform::Identity};
+
+	UPROPERTY(meta=(Input))
+	FTransform WorldTransform{FTransform::Identity};
+
+	UPROPERTY(meta=(Output))
+	FTransform World{FTransform::Identity};
+
+public:
+	RIGVM_METHOD()
+	virtual void Execute() override;
 };

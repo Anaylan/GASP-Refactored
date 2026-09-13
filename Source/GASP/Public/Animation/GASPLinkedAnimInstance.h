@@ -4,9 +4,6 @@
 #include "Types/StructTypes.h"
 #include "GASPLinkedAnimInstance.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class GASP_API UGASPLinkedAnimInstance : public UAnimInstance
 {

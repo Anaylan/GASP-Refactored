@@ -14,6 +14,7 @@ public class GASPExtras : ModuleRules
 				"InputCore",
 				"EnhancedInput",
 				"Mover",
+				"GameplayTags",
 			}
 		);
 

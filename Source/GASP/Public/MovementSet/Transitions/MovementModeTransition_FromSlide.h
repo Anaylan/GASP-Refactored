@@ -3,9 +3,6 @@
 #include "MovementModeTransition.h"
 #include "MovementModeTransition_FromSlide.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class GASP_API UMovementModeTransition_FromSlide : public UBaseMovementModeTransition
 {

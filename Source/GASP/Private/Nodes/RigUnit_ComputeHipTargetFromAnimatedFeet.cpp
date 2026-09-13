@@ -1,5 +1,4 @@
 #include "Nodes/RigUnit_ComputeHipTargetFromAnimatedFeet.h"
-#include "Math/UnitConversion.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(RigUnit_ComputeHipTargetFromAnimatedFeet)
 
@@ -17,6 +16,7 @@ FRigUnit_ComputeHipTargetFromAnimatedFeet_Execute()
 
 	auto SumCentroids{FVector::ZeroVector};
 	float MaxZ{-TNumericLimits<float>::Max()};
+	int32 ValidFootCount{0};
 
 	if (CachedToeControls.Num() != Feet.Num() || CachedToeTargets.Num() != Feet.Num())
 	{
@@ -39,9 +39,20 @@ FRigUnit_ComputeHipTargetFromAnimatedFeet_Execute()
 
 			SumCentroids += FootCentroid;
 			MaxZ = FMath::Max(MaxZ, FootCentroid.Z);
+			++ValidFootCount;
 		}
 	}
 
-	const auto AverageCentroid{SumCentroids / UE_REAL_TO_FLOAT(Feet.Num())};
-	Result = {AverageCentroid.X, AverageCentroid.Y, MaxZ};
+	if (ValidFootCount <= 0)
+	{
+		// No foot resolved against the hierarchy, so MaxZ is still its sentinel. Leaving Result
+		// untouched keeps the previous hip target instead of writing -FLT_MAX into the rig.
+		return;
+	}
+
+	// Divide by the feet that contributed, not by the configured count: an unresolved entry would
+	// otherwise pull the centroid towards the origin.
+	Result = SumCentroids / static_cast<float>(ValidFootCount);
 }
+
+// Touch for LiveCoding compilation

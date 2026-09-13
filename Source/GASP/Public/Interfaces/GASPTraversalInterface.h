@@ -1,16 +1,15 @@
 ﻿#pragma once
 
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "PoseSearch/PoseSearchHistory.h"
-#include "GASPInteractionInterface.generated.h"
+#include "GASPTraversalInterface.generated.h"
 
 UINTERFACE()
-class UGASPInteractionInterface : public UInterface
+class UGASPTraversalInterface : public UInterface
 {
 	GENERATED_BODY()
 };
 
-class GASP_API IGASPInteractionInterface
+class GASP_API IGASPTraversalInterface
 {
 	GENERATED_BODY()
 
@@ -19,8 +18,6 @@ public:
 	void SetInteractionTransform(const FTransform& InteractionTransform);
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="Traversal")
 	void GetInteractionTransform(FTransform& OutInteractionTransform) const;
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="Traversal")
-	FPoseHistoryReference GetPoseHistory() const;
 };
 
 UCLASS(meta = (BlueprintThreadSafe))

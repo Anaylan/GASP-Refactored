@@ -1,335 +1,139 @@
+#include "PhysicsControlComponent.h"
 #include "Actors/GASPCharacter.h"
 #include "Animation/GASPAnimInstance.h"
-#include "Components/CapsuleComponent.h"
+#include "Components/GASPOverrideModeManager.h"
+#include "Interfaces/GASPAnimContextInterface.h"
 #include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
+#include "MovementSet/GASPMovementInterface.h"
 #include "MovementSet/GASPMoverComponent.h"
+#include "MovementSet/Modes/MovementMode_Ragdolling.h"
 #include "Net/Core/PushModel/PushModel.h"
+#include "PoseSearch/PoseSearchLibrary.h"
 #include "Settings/GASPCharacterSettings.h"
-#include "DefaultMovementSet/InstantMovementEffects/BasicInstantMovementEffects.h"
+#include "Tasks/CharacterTask_Ragdoll.h"
+#include "Utils/GASPChooserLibrary.h"
+#include "Utils/GASPPhysicsControlLibrary.h"
+#include "Utils/GASPRagdollLibrary.h"
 
-static const FName NAME_pelvis(TEXT("pelvis"));
-static const FName NAME_spine_03(TEXT("spine_03"));
 
-UAnimMontage* AGASPCharacter::SelectGetUpMontage(const bool bRagdollFacingUpward)
+void AGASPCharacter::StartRagdolling(const bool bStopActiveMontages, const FMontageBlendSettings& BlendSettings,
+                                     const FGameplayTag& InjuryState)
 {
-	return bRagdollFacingUpward ? Settings->GetUpMontageBack : Settings->GetUpMontageFront;
-}
-
-bool AGASPCharacter::IsRagdollingAllowedToStart() const
-{
-	return LocomotionAction != LocomotionActionTags::Ragdoll && *NAME_pelvis.ToString() && *NAME_spine_03.ToString();
-}
-
-void AGASPCharacter::StartRagdolling()
-{
-	if (GetLocalRole() <= ROLE_SimulatedProxy || !IsRagdollingAllowedToStart())
+	if (GetLocalRole() <= ROLE_SimulatedProxy || IsRagdolling())
 	{
 		return;
 	}
 
 	if (GetLocalRole() >= ROLE_Authority)
 	{
-		MulticastStartRagdolling();
+		MulticastStartRagdolling(bStopActiveMontages, BlendSettings, InjuryState);
 	}
 	else
 	{
-		ServerStartRagdolling();
+		ServerStartRagdolling(bStopActiveMontages, BlendSettings, InjuryState);
+		StartRagdollingImplementation(bStopActiveMontages, BlendSettings, InjuryState);
 	}
 }
 
-void AGASPCharacter::ServerStartRagdolling_Implementation()
+void AGASPCharacter::ServerStartRagdolling_Implementation(const bool bStopActiveMontages,
+                                                          const FMontageBlendSettings& BlendSettings,
+                                                          const FGameplayTag& InjuryState)
 {
-	if (IsRagdollingAllowedToStart())
-	{
-		MulticastStartRagdolling();
-		ForceNetUpdate();
-	}
+	MulticastStartRagdolling(bStopActiveMontages, BlendSettings, InjuryState);
+	ForceNetUpdate();
 }
 
-void AGASPCharacter::MulticastStartRagdolling_Implementation()
+void AGASPCharacter::MulticastStartRagdolling_Implementation(const bool bStopActiveMontages,
+                                                             const FMontageBlendSettings& BlendSettings,
+                                                             const FGameplayTag& InjuryState)
 {
-	StartRagdollingImplementation();
+	StartRagdollingImplementation(bStopActiveMontages, BlendSettings, InjuryState);
 }
 
-void AGASPCharacter::StartRagdollingImplementation()
+void AGASPCharacter::StartRagdollingImplementation(const bool bStopActiveMontages,
+                                                   const FMontageBlendSettings& BlendSettings,
+                                                   const FGameplayTag& InjuryState)
 {
-	if (!IsRagdollingAllowedToStart())
+	if (IsRagdolling() || (RagdollTask && RagdollTask->IsActive()))
 	{
 		return;
 	}
 
-	GetMesh()->bUpdateJointsFromAnimation = true; // Required for the flail animation to work properly.
+	CharacterMotionComponent->QueueNextMode(MovementModeNames::Ragdolling);
 
-	if (!GetMesh()->IsRunningParallelEvaluation() && GetMesh()->GetBoneSpaceTransforms().Num() > 0)
+	RagdollTask = UCharacterTask_Ragdoll::CreateRagdollTask(this, bStopActiveMontages, BlendSettings, InjuryState,
+	                                                        GetSettingsChecked()->GetUpTable.LoadSynchronous());
+	RagdollTask->OnRagdollStarted.AddUniqueDynamic(this, &ThisClass::OnStartRagdolling);
+	RagdollTask->OnRagdollEnded.AddUniqueDynamic(this, &ThisClass::OnStopRagdolling);
+	RagdollTask->ReadyForActivation();
+
+	if (!RagdollTask->IsActive())
 	{
-		GetMesh()->UpdateRBJointMotors();
-	}
-
-	// Stop any active montages.
-	static constexpr auto BlendOutDuration{0.2f};
-
-	if (IsValid(GetMesh()->GetAnimInstance()))
-	{
-		GetMesh()->GetAnimInstance()->Montage_Stop(BlendOutDuration);
-	}
-
-	// Detach the mesh so that character transformation changes will not affect it in any way.
-	GetMesh()->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-
-	// Disable capsule collision and enable mesh physics simulation.
-	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-	GetMesh()->SetCollisionObjectType(ECC_PhysicsBody);
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	GetMesh()->SetSimulatePhysics(true);
-
-	const auto* PelvisBody{GetMesh()->GetBodyInstance(NAME_pelvis)};
-	FVector PelvisLocation;
-
-	FPhysicsCommand::ExecuteRead(PelvisBody->ActorHandle,
-	                             [this, &PelvisLocation](const FPhysicsActorHandle& ActorHandle)
-	                             {
-		                             PelvisLocation = FPhysicsInterface::GetTransform_AssumesLocked(ActorHandle, true).
-			                             GetLocation();
-		                             RagdollingState.Velocity = FPhysicsInterface::GetLinearVelocity_AssumesLocked(
-			                             ActorHandle);
-	                             });
-
-	RagdollingState.PullForce = 0.0f;
-
-	if (Settings->bLimitInitialRagdollSpeed)
-	{
-		// Limit the ragdoll's speed for a few frames, because for some unclear reason,
-		// it can get a much higher initial speed than the character's last speed.
-		static constexpr auto MinSpeedLimit{200.0f};
-
-		RagdollingState.SpeedLimitFrameTimeRemaining = 8;
-		RagdollingState.SpeedLimit = FMath::Max(MinSpeedLimit,
-		                                        UE_REAL_TO_FLOAT(GetMoverComponent()->GetVelocity().Size()));
-
-		ConstraintRagdollSpeed();
-	}
-
-	if (GetLocalRole() >= ROLE_Authority)
-	{
-		SetRagdollTargetLocation(FVector::ZeroVector);
-	}
-
-	if (IsLocallyControlled() || (GetLocalRole() >= ROLE_Authority && !IsValid(GetController())))
-	{
-		SetRagdollTargetLocation(PelvisLocation);
-	}
-
-	// Clear the character movement mode and set the locomotion action to ragdolling.
-	GetWorldTimerManager().SetTimerForNextTick([this]()
-	{
-		GetMoverComponent()->QueueNextMode(UNullMovementMode::NullModeName);
-		SetLocomotionAction(LocomotionActionTags::Ragdoll);
-		OnStartRagdolling();
-	});
-}
-
-void AGASPCharacter::SetRagdollTargetLocation(const FVector& NewTargetLocation)
-{
-	if (RagdollTargetLocation != NewTargetLocation)
-	{
-		RagdollTargetLocation = NewTargetLocation;
-
-		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, RagdollTargetLocation, this)
-
-		if (GetLocalRole() == ROLE_AutonomousProxy)
-		{
-			ServerSetRagdollTargetLocation(RagdollTargetLocation);
-		}
+		UE_LOG(LogTemp, Error,
+		       TEXT("%s: RagdollTask failed to activate (missing GameplayTasksComponent?)"),
+		       *GetName());
 	}
 }
 
-void AGASPCharacter::ServerSetRagdollTargetLocation_Implementation(const FVector_NetQuantize& NewTargetLocation)
-{
-	SetRagdollTargetLocation(NewTargetLocation);
-}
 
-void AGASPCharacter::RefreshRagdolling(const float DeltaTime)
+void AGASPCharacter::SetPhysicsProfile(const FName NewPhysicsProfileName)
 {
-	// Since we are dealing with physics here, we should not use functions such as USkinnedMeshComponent::GetSocketTransform() as
-	// they may return an incorrect result in situations like when the animation blueprint is not ticking or when URO is enabled.
-	const auto* PelvisBody{GetMesh()->GetBodyInstance(NAME_pelvis)};
-	if (!PelvisBody)
+	if (!PhysicsControlComponent || !Mesh)
 	{
 		return;
 	}
-	FVector PelvisLocation;
 
-	FPhysicsCommand::ExecuteRead(PelvisBody->ActorHandle,
-	                             [this, &PelvisLocation](const FPhysicsActorHandle& ActorHandle)
-	                             {
-		                             PelvisLocation = FPhysicsInterface::GetTransform_AssumesLocked(ActorHandle, true).
-			                             GetLocation();
-		                             RagdollingState.Velocity = FPhysicsInterface::GetLinearVelocity_AssumesLocked(
-			                             ActorHandle);
-	                             });
-
-	const auto bLocallyControlled{
-		IsLocallyControlled() || (GetLocalRole() >= ROLE_Authority && !IsValid(GetController()))
-	};
-
-	if (bLocallyControlled)
+	// Update AppliedProfileName in TaskStates
+	if (auto* State{TaskStates.FindMutableDataByType<FRagdollingState>()})
 	{
-		SetRagdollTargetLocation(PelvisLocation);
+		State->AppliedProfileName = NewPhysicsProfileName;
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, TaskStates, this);
 	}
 
-	// Prevent the capsule from going through the ground when the ragdoll is lying on the ground.
+	PhysicsControlComponent->InvokeControlProfile(NewPhysicsProfileName);
 
-	// While we could get rid of the line trace here and just use RagdollTargetLocation
-	// as the character's location, we don't do that because the camera depends on the
-	// capsule's bottom location, so its removal will cause the camera to behave erratically.
+	const bool bRagdollProfile{NewPhysicsProfileName == TEXT("Ragdoll")};
+
+	// Every pair of distinct limb groups, so the number of legs is a property of the character
+	// rather than of this function: two groups for a biped, six for a six-legged one.
+	for (int32 First{0}; First < RagdollSelfCollisionGroups.Num(); ++First)
 	{
-		bool bGrounded;
-		const FVector NewLocation{RagdollTraceGround(bGrounded)};
-
-		// Move the mesh component (not the physics bodies) so the root bone and camera follow the ragdoll.
-		GetMesh()->SetWorldLocationAndRotationNoPhysics({
-			                                                NewLocation.X, NewLocation.Y,
-			                                                NewLocation.Z - GetCapsuleComponent()->
-			                                                GetScaledCapsuleHalfHeight()
-		                                                }, GetMesh()->GetComponentRotation());
-
-		const auto TeleportEffect{MakeShared<FTeleportEffect>()};
-		TeleportEffect->TargetLocation = NewLocation;
-		TeleportEffect->bUseActorRotation = true;
-		GetMoverComponent()->QueueInstantMovementEffect(TeleportEffect);
-	}
-
-	// Zero target location means that it hasn't been replicated yet, so we can't apply the logic below.
-	if (!bLocallyControlled && !RagdollTargetLocation.IsZero())
-	{
-		// Apply ragdoll location corrections.
-		static constexpr auto PullForce{750.0f};
-		static constexpr auto InterpolationSpeed{0.6f};
-
-		RagdollingState.PullForce = FMath::FInterpTo(RagdollingState.PullForce, PullForce, DeltaTime,
-		                                             InterpolationSpeed);
-
-		const auto HorizontalSpeedSquared{RagdollingState.Velocity.SizeSquared2D()};
-
-		const auto PullForceBoneName{
-			HorizontalSpeedSquared > FMath::Square(300.0f) ? NAME_spine_03 : NAME_pelvis
-		};
-
-		auto* PullForceBody{GetMesh()->GetBodyInstance(PullForceBoneName)};
-		if (!PullForceBody)
+		if (RagdollSelfCollisionGroups[First].BoneNames.IsEmpty())
 		{
-			return;
+			continue;
 		}
 
-		FPhysicsCommand::ExecuteWrite(PullForceBody->ActorHandle, [this](const FPhysicsActorHandle& ActorHandle)
+		for (int32 Second{First + 1}; Second < RagdollSelfCollisionGroups.Num(); ++Second)
 		{
-			if (!FPhysicsInterface::IsRigidBody(ActorHandle))
+			if (RagdollSelfCollisionGroups[Second].BoneNames.IsEmpty())
 			{
-				return;
+				continue;
 			}
 
-			const auto PullForceVector{
-				RagdollTargetLocation - FPhysicsInterface::GetTransform_AssumesLocked(ActorHandle, true).GetLocation()
-			};
+			const auto& FirstBones{RagdollSelfCollisionGroups[First].BoneNames};
+			const auto& SecondBones{RagdollSelfCollisionGroups[Second].BoneNames};
 
-			static constexpr auto MinPullForceDistance{5.0f};
-			static constexpr auto MaxPullForceDistance{50.0f};
-
-			if (PullForceVector.SizeSquared() > FMath::Square(MinPullForceDistance))
+			if (bRagdollProfile)
 			{
-				FPhysicsInterface::AddForce_AssumesLocked(
-					ActorHandle, PullForceVector.GetClampedToMaxSize(MaxPullForceDistance) * RagdollingState.PullForce,
-					true, true);
+				UGASPPhysicsControlLibrary::EnableCollisionBetweenBodyArrays(
+					Mesh, FirstBones, Mesh, SecondBones
+				);
 			}
-		});
+			else
+			{
+				UGASPPhysicsControlLibrary::DisableCollisionBetweenBodyArrays(
+					Mesh, FirstBones, Mesh, SecondBones
+				);
+			}
+		}
 	}
 
-	// Use the speed to scale ragdoll joint strength for physical animation.
-	static constexpr auto ReferenceSpeed{1000.0f};
-	static constexpr auto Stiffness{25000.0f};
-
-	const auto SpeedAmount{FMath::Clamp(UE_REAL_TO_FLOAT(RagdollingState.Velocity.Size() / ReferenceSpeed), 0.f, 1.f)};
-
-	GetMesh()->SetAllMotorsAngularDriveParams(SpeedAmount * Stiffness, 0.0f, 0.0f);
-
-	// Limit the speed of ragdoll bodies.
-	if (RagdollingState.SpeedLimitFrameTimeRemaining > 0)
-	{
-		RagdollingState.SpeedLimitFrameTimeRemaining -= 1;
-
-		ConstraintRagdollSpeed();
-	}
-}
-
-FVector AGASPCharacter::RagdollTraceGround(bool& bGrounded) const
-{
-	auto RagdollLocation{
-		!RagdollTargetLocation.IsZero()
-			? FVector{RagdollTargetLocation}
-			: GetActorLocation()
-	};
-
-	// We use a sphere sweep instead of a simple line trace to keep capsule
-	// movement consistent between ragdolling and regular character movement.
-	const auto CapsuleRadius{GetCapsuleComponent()->GetScaledCapsuleRadius()};
-	const auto CapsuleHalfHeight{GetCapsuleComponent()->GetScaledCapsuleHalfHeight()};
-
-	const FVector TraceStart{RagdollLocation.X, RagdollLocation.Y, RagdollLocation.Z + 2.0f * CapsuleRadius};
-	const FVector TraceEnd{RagdollLocation.X, RagdollLocation.Y, RagdollLocation.Z - CapsuleHalfHeight + CapsuleRadius};
-
-	const auto CollisionChannel{GetMoverComponent()->GetUpdatedComponent()->GetCollisionObjectType()};
-
-	FCollisionQueryParams QueryParameters{__FUNCTION__, false, this};
-	FCollisionResponseParams CollisionResponses;
-	GetMoverComponent()->InitCollisionParams(QueryParameters, CollisionResponses);
-
-	FHitResult Hit;
-	bGrounded = GetWorld()->SweepSingleByChannel(Hit, TraceStart, TraceEnd, FQuat::Identity,
-	                                             CollisionChannel, FCollisionShape::MakeSphere(CapsuleRadius),
-	                                             QueryParameters, CollisionResponses);
-
-	return FVector{
-		RagdollLocation.X, RagdollLocation.Y,
-		bGrounded
-			? Hit.Location.Z + CapsuleHalfHeight - CapsuleRadius + /**MIN_FLOOR_DIST*/ 1.9f
-			: RagdollLocation.Z
-	};
-}
-
-void AGASPCharacter::ConstraintRagdollSpeed() const
-{
-	GetMesh()->ForEachBodyBelow(NAME_None, true, false, [this](FBodyInstance* Body)
-	{
-		FPhysicsCommand::ExecuteWrite(Body->ActorHandle, [this](const FPhysicsActorHandle& ActorHandle)
-		{
-			if (!FPhysicsInterface::IsRigidBody(ActorHandle))
-			{
-				return;
-			}
-
-			auto Velocity{FPhysicsInterface::GetLinearVelocity_AssumesLocked(ActorHandle)};
-			if (Velocity.SizeSquared() <= FMath::Square(RagdollingState.SpeedLimit))
-			{
-				return;
-			}
-
-			Velocity.Normalize();
-			Velocity *= RagdollingState.SpeedLimit;
-
-			FPhysicsInterface::SetLinearVelocity_AssumesLocked(ActorHandle, Velocity);
-		});
-	});
-}
-
-bool AGASPCharacter::IsRagdollingAllowedToStop() const
-{
-	return LocomotionAction == LocomotionActionTags::Ragdoll && *NAME_pelvis.ToString() && *NAME_spine_03.ToString();
+	Mesh->SetConstraintProfileForAll(bRagdollProfile ? NAME_None : FName{TEXT("Free")});
 }
 
 bool AGASPCharacter::StopRagdolling()
 {
-	if (GetLocalRole() <= ROLE_SimulatedProxy || !IsRagdollingAllowedToStop())
+	if (GetLocalRole() <= ROLE_SimulatedProxy)
 	{
 		return false;
 	}
@@ -346,13 +150,15 @@ bool AGASPCharacter::StopRagdolling()
 	return true;
 }
 
+bool AGASPCharacter::IsRagdolling() const
+{
+	return RagdollTask && GetMoverComponent()->IsRagdolling();
+}
+
 void AGASPCharacter::ServerStopRagdolling_Implementation()
 {
-	if (IsRagdollingAllowedToStop())
-	{
-		MulticastStopRagdolling();
-		ForceNetUpdate();
-	}
+	MulticastStopRagdolling();
+	ForceNetUpdate();
 }
 
 void AGASPCharacter::MulticastStopRagdolling_Implementation()
@@ -362,100 +168,55 @@ void AGASPCharacter::MulticastStopRagdolling_Implementation()
 
 void AGASPCharacter::StopRagdollingImplementation()
 {
-	if (!IsRagdollingAllowedToStop())
+	if (!RagdollTask)
 	{
 		return;
 	}
 
-	auto* AnimationInstance{Cast<UGASPAnimInstance>(GetMesh()->GetAnimInstance())};
-	if (!AnimationInstance)
+	FHitResult Floor;
+	const bool bHasFloor = GetMoverComponent()->TryGetFloorCheckHitResult(Floor) && Floor.bBlockingHit;
+	const FName TargetModeName = bHasFloor ? DefaultModeNames::Walking : DefaultModeNames::Falling;
+	GetMoverComponent()->QueueNextMode(TargetModeName);
+}
+
+void AGASPCharacter::TryPlayGetUpMontage()
+{
+	auto* AnimInstance{Mesh ? Cast<UGASPAnimInstance>(Mesh->GetAnimInstance()) : nullptr};
+	if (!AnimInstance)
 	{
 		return;
 	}
-	auto& FinalRagdollPose{AnimationInstance->SnapshotFinalRagdollPose()};
 
-	auto PelvisTransform{GetMesh()->GetSocketTransform(NAME_pelvis)};
-	if (const auto* PelvisBody{GetMesh()->GetBodyInstance(NAME_pelvis)})
+	AnimInstance->SnapshotFinalRagdollPose();
+
+	auto GetUpTable{Settings ? Settings->GetUpTable.LoadSynchronous() : nullptr};
+	if (!CharacterMotionComponent || !IsValid(GetUpTable))
 	{
-		FPhysicsCommand::ExecuteRead(PelvisBody->ActorHandle,
-		                             [&PelvisTransform](const FPhysicsActorHandle& ActorHandle)
-		                             {
-			                             PelvisTransform =
-				                             FPhysicsInterface::GetTransform_AssumesLocked(ActorHandle, true);
-		                             });
-	}
-	const auto PelvisRotation{PelvisTransform.Rotator()};
-
-	// Disable mesh physics simulation and enable capsule collision.
-	GetMesh()->bUpdateJointsFromAnimation = false;
-
-	GetMesh()->SetSimulatePhysics(false);
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::ProbeOnly);
-	GetMesh()->SetCollisionObjectType(ECC_Pawn);
-
-	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-
-	bool bGrounded;
-	const auto NewActorLocation{RagdollTraceGround(bGrounded)};
-
-	// Determine whether the ragdoll is facing upward or downward and set the actor rotation accordingly.
-	const auto bRagdollFacingUpward{FMath::UnwindDegrees(PelvisRotation.Roll) <= 0.0f};
-	// auto UpdatedComponent{GetMoverComponent()->GetUpdatedComponent()};
-
-	auto NewActorRotation{GetActorRotation()};
-	NewActorRotation.Yaw = bRagdollFacingUpward ? PelvisRotation.Yaw - 180.0f : PelvisRotation.Yaw;
-
-	auto TeleportEffect = MakeShared<FTeleportEffect>();
-	TeleportEffect->TargetLocation = NewActorLocation;
-	TeleportEffect->TargetRotation = NewActorRotation;
-	GetMoverComponent()->QueueInstantMovementEffect(TeleportEffect);
-
-	// Attach the mesh back and restore its default relative location.
-	const auto& ActorTransform{GetActorTransform()};
-
-	GetMesh()->SetWorldLocationAndRotationNoPhysics(
-		ActorTransform.TransformPositionNoScale(Mesh->GetRelativeLocation()),
-		ActorTransform.TransformRotation(Mesh->GetRelativeRotation().Quaternion()).Rotator());
-
-	GetMesh()->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::KeepWorldTransform);
-
-	if (GetMesh()->ShouldUseUpdateRateOptimizations())
-	{
-		// Disable URO for one frame to force the animation blueprint to update and get rid of the incorrect mesh pose.
-		GetMesh()->bEnableUpdateRateOptimizations = false;
-
-		GetWorld()->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this]
-		{
-			GetMesh()->bEnableUpdateRateOptimizations = true;
-		}));
+		return;
 	}
 
-	// Restore the pelvis transform to the state it was in before we changed
-	// the character and mesh transforms to keep its world transform unchanged.
-	const auto& ReferenceSkeleton{GetMesh()->GetSkinnedAsset()->GetRefSkeleton()};
-	if (const auto PelvisBoneIndex{ReferenceSkeleton.FindBoneIndex(NAME_pelvis)}; PelvisBoneIndex >= 0)
+	UPoseSearchLibrary::OverridePoseHistoryFromOwningMesh(AnimInstance, TEXT("PoseHistory"));
+
+	FGASPGetUpInput Input;
+	if (const auto* State{TaskStates.FindDataByType<FRagdollingState>()})
 	{
-		// We expect the pelvis bone to be the root bone or attached to it, so we can safely use the mesh transform here.
-		FinalRagdollPose.LocalTransforms[PelvisBoneIndex] = PelvisTransform.GetRelativeTransform(
-			GetMesh()->GetComponentTransform());
+		Input.bRollingGetup = FGASPRagdollLibrary::ShouldRollingGetUp(*State);
 	}
 
-	// If the ragdoll is on the ground, set the movement mode to walking and play a get up montage. If not, set
-	// the movement mode to falling and update the character movement velocity to match the last ragdoll velocity.
-	if (bGrounded)
+	auto* MovementMode{
+		CharacterMotionComponent->FindMovementModeByName(CharacterMotionComponent->GetNextMovementModeName())
+	};
+	Input.StateContainer = IGASPMovementInterface::GetAssociatedTagSafe(MovementMode).GetSingleTagContainer();
+
+	FGASPGetUpOutput Output;
+	auto PoseHistory = IGASPAnimContextInterface::Execute_GetPoseHistory(AnimInstance);
+
+	auto* Montage{FGASPChooserUtils::EvaluateSingle<UAnimMontage>(GetUpTable, Input, PoseHistory, Output)};
+	if (!Montage)
 	{
-		GetMoverComponent()->QueueNextMode(DefaultModeNames::Walking);
-		UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
-			GetMoverComponent(), SelectGetUpMontage(bRagdollFacingUpward));
-	}
-	else
-	{
-		GetMoverComponent()->QueueNextMode(DefaultModeNames::Falling);
-		auto VelocityEffect{MakeShared<FApplyVelocityEffect>()};
-		VelocityEffect->VelocityToApply = RagdollingState.Velocity;
-		GetMoverComponent()->QueueInstantMovementEffect(VelocityEffect);
+		return;
 	}
 
-	SetLocomotionAction(FGameplayTag::EmptyTag);
-	OnStopRagdolling();
+	UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
+		CharacterMotionComponent, Montage, 1.0f, Output.MontageStartTime);
 }

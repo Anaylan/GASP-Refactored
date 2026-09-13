@@ -1,9 +1,9 @@
 {
   "FileVersion": 3,
   "Version": 2,
-  "VersionName": "2.0",
+  "VersionName": "2.5",
   "FriendlyName": "Game Animation Sample Refactored",
-  "Description": "Reworked and improved С++ version of Game Animation Sample",
+  "Description": "Reworked and improved C++ version of Game Animation Sample",
   "Category": "Animation",
   "CreatedBy": "anaylan",
   "CreatedByURL": "https://github.com/Anaylan",
@@ -104,6 +104,10 @@
     },
     {
       "Name": "CurveExpression",
+      "Enabled": true
+    },
+    {
+      "Name": "PhysicsControl",
       "Enabled": true
     },
     {

@@ -6,6 +6,7 @@ namespace MovementModeTags
 	UE_DEFINE_GAMEPLAY_TAG(InAir, FName{TEXTVIEW("GASP.Movement.Mode.InAir")});
 	UE_DEFINE_GAMEPLAY_TAG(Slide, FName{TEXTVIEW("GASP.Movement.Mode.Slide")});
 	UE_DEFINE_GAMEPLAY_TAG(Traverse, FName{TEXTVIEW("GASP.Movement.Mode.Traverse")});
+	UE_DEFINE_GAMEPLAY_TAG(Ragdoll, FName{TEXTVIEW("GASP.Movement.Mode.Ragdoll")});
 }
 
 namespace PoseModeTags
@@ -33,10 +34,10 @@ namespace OverlayModeTags
 
 namespace LocomotionActionTags
 {
-	UE_DEFINE_GAMEPLAY_TAG(Ragdoll, FName{TEXTVIEW("GASP.Locomotion.Action.Ragdoll")})
 	UE_DEFINE_GAMEPLAY_TAG(Vault, FName{TEXTVIEW("GASP.Locomotion.Action.Vault")})
 	UE_DEFINE_GAMEPLAY_TAG(Mantle, FName{TEXTVIEW("GASP.Locomotion.Action.Mantle")})
 	UE_DEFINE_GAMEPLAY_TAG(Hurdle, FName{TEXTVIEW("GASP.Locomotion.Action.Hurdle")})
+	UE_DEFINE_GAMEPLAY_TAG(Ragdoll, FName{TEXTVIEW("GASP.Locomotion.Action.Ragdoll")})
 }
 
 namespace FoleyTags
@@ -53,6 +54,9 @@ namespace FoleyTags
 	UE_DEFINE_GAMEPLAY_TAG(Land, FName{TEXTVIEW("Foley.Event.Land")})
 	UE_DEFINE_GAMEPLAY_TAG(ScuffWall, FName{TEXTVIEW("Foley.Event.ScuffWall")})
 	UE_DEFINE_GAMEPLAY_TAG(Tumble, FName{TEXTVIEW("Foley.Event.Tumble")})
+	UE_DEFINE_GAMEPLAY_TAG(Ragdoll, FName{TEXTVIEW("Foley.Event.Ragdoll")})
+	UE_DEFINE_GAMEPLAY_TAG(Punch, FName{TEXTVIEW("Foley.Event.Punch")})
+	UE_DEFINE_GAMEPLAY_TAG(Kick, FName{TEXTVIEW("Foley.Event.Kick")})
 }
 
 namespace GaitTags
@@ -71,12 +75,22 @@ namespace RotationTags
 
 namespace StanceTags
 {
-	UE_DEFINE_GAMEPLAY_TAG(Standing, FName{TEXTVIEW("GASP.Stance.Standing")})
-	UE_DEFINE_GAMEPLAY_TAG(Crouching, FName{TEXTVIEW("GASP.Stance.Crouching")})
+	UE_DEFINE_GAMEPLAY_TAG(Standing, FName{TEXTVIEW("GASP.Stance.Standing")});
+	UE_DEFINE_GAMEPLAY_TAG(Crouching, FName{TEXTVIEW("GASP.Stance.Crouching")});
 }
 
 namespace MovementStateTags
 {
 	UE_DEFINE_GAMEPLAY_TAG(Moving, FName{TEXTVIEW("GASP.Movement.State.Moving")});
 	UE_DEFINE_GAMEPLAY_TAG(Idle, FName{TEXTVIEW("GASP.Movement.State.Idle")});
+}
+
+namespace InjuryTags
+{
+	UE_DEFINE_GAMEPLAY_TAG(Limp, FName{TEXT("GASP.Injury.Limp")});
+	UE_DEFINE_GAMEPLAY_TAG(Stunned, FName{TEXT("GASP.Injury.Stunned")});
+	UE_DEFINE_GAMEPLAY_TAG(Head_Face, FName{TEXT("GASP.Injury.Head.Face")});
+	UE_DEFINE_GAMEPLAY_TAG(Head_Back, FName{TEXT("GASP.Injury.Head.Back")});
+	UE_DEFINE_GAMEPLAY_TAG(Body_Front, FName{TEXT("GASP.Injury.Body.Front")});
+	UE_DEFINE_GAMEPLAY_TAG(Groin, FName{TEXT("GASP.Injury.Groin")});
 }

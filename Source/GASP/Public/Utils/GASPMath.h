@@ -95,5 +95,13 @@ inline FTransform UGASPMath::GetRelativeTransform(const FTransform& From, const 
 inline FVector UGASPMath::ClampVectorLength(const FVector& Value, const float Min, const float Max)
 {
 	const float Length{UE_REAL_TO_FLOAT(Value.Size())};
-	return Value * FMath::Clamp<float>(Length, Min, Max) / Length;
+	if (Length <= UE_SMALL_NUMBER)
+	{
+		// A zero-length vector has no direction to clamp along, and dividing by Length would
+		// produce NaN. Callers in the Control Rig units feed the result straight into bone
+		// transforms, so returning zero keeps the rig stable.
+		return FVector::ZeroVector;
+	}
+
+	return Value * (FMath::Clamp<float>(Length, Min, Max) / Length);
 }

@@ -3,9 +3,6 @@
 #include "GameFramework/PlayerController.h"
 #include "GASPPlayerControllerExample.generated.h"
 
-/**
- *
- */
 UCLASS()
 class GASPEXTRAS_API AGASPPlayerControllerExample : public APlayerController
 {

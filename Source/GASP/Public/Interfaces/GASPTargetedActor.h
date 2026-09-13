@@ -2,9 +2,6 @@
 
 #include "GASPTargetedActor.generated.h"
 
-/**
- * 
- */
 UINTERFACE()
 class UGASPTargetedActor : public UInterface
 {

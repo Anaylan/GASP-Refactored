@@ -3,9 +3,6 @@
 #include "Engine/DataAsset.h"
 #include "GASPLinkedAnimInstanceSet.generated.h"
 
-/**
- *
- */
 UCLASS()
 class GASP_API UGASPLinkedAnimInstanceSet : public UPrimaryDataAsset
 {

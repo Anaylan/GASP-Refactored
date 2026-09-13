@@ -6,9 +6,6 @@
 #include "Types/TagTypes.h"
 #include "AnimNotifyState_EarlyTransition.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class GASP_API UAnimNotifyState_EarlyTransition : public UAnimNotifyState
 {

@@ -30,6 +30,15 @@ void UMovementMode_Sliding::GenerateWalkMove_Implementation(FMoverTickStartData&
 												 FVector& InOutAngularVelocityDegrees, FVector& InOutVelocity)
 {
 	const auto* CharacterInputs = StartState.InputCmd.InputCollection.FindDataByType<FGASPMoverInputs>();
+	if (!CharacterInputs)
+	{
+		// Simulated proxies replay without the GASP input struct; RotationOffset below is the only
+		// thing this override adds, so the base move is the correct fallback.
+		Super::GenerateWalkMove_Implementation(StartState, DeltaSeconds, SimContext, DesiredVelocity,
+		                                       DesiredFacing, CurrentFacing, InOutAngularVelocityDegrees,
+		                                       InOutVelocity);
+		return;
+	}
 
 	const FVector FwdCurrent = CurrentFacing.GetForwardVector();
 	const FVector FwdDesired = DesiredFacing.GetForwardVector();
@@ -63,7 +72,7 @@ void UMovementMode_Sliding::GenerateWalkMove_Implementation(FMoverTickStartData&
 			                   {-ShallowSlopeAngle, -SteepSlopeAngle}, {ShallowSlopeSpeed, SteepSlopeSpeed},
 			                   SlopeAngle);
 
-	Acceleration = InitialBoost ? AfterBoostAcceleration : InitialBoostAcceleration;
+	Acceleration = InitialBoost ? InitialBoostAcceleration : AfterBoostAcceleration;
 	Deceleration = FMath::GetMappedRangeValueClamped<float, float>({ShallowSlopeAngle, SteepSlopeAngle},
 	                                                               {FlatGroundDeceleration, SteepSlopeDeceleration},
 	                                                               SlopeAngle);

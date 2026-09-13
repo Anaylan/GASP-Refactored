@@ -1,4 +1,4 @@
-﻿#include "Animation/Notifies/AnimNotifyState_EarlyTransition.h"
+#include "Animation/Notifies/AnimNotifyState_EarlyTransition.h"
 #include "Animation/GASPAnimInstance.h"
 #include "Types/EnumTypes.h"
 #include "Utils/GASPBlueprintLibrary.h"
@@ -17,12 +17,15 @@ void UAnimNotifyState_EarlyTransition::NotifyTick(USkeletalMeshComponent* MeshCo
 {
 	Super::NotifyTick(MeshComp, Animation, FrameDeltaTime, EventReference);
 
+	// Deliberate: the transition flags are driven from the non-active context only, so a notify
+	// that is also evaluated in the active context does not raise them twice in one frame.
 	if (!IsValid(MeshComp) || EventReference.IsActiveContext())
 	{
 		return;
 	}
 
-	auto* AnimInstance = static_cast<UGASPAnimInstance*>(MeshComp->GetAnimInstance());
+	// The mesh may run a non-GASP anim instance, in which case there is no transition state to set.
+	auto* AnimInstance = Cast<UGASPAnimInstance>(MeshComp->GetAnimInstance());
 	if (!IsValid(AnimInstance))
 	{
 		return;

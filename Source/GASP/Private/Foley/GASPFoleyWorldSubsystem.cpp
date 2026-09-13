@@ -24,6 +24,11 @@ FGASPFoleyOut UGASPFoleyWorldSubsystem::PlayFoleyEvent(UGASPFootstepEffectsSet* 
                                                        const float TraceLength, const float VolumeMultiplier,
                                                        const float PitchMultiplier)
 {
+	if (!Mesh)
+	{
+		return FGASPFoleyOut{};
+	}
+
 	const auto Owner = Mesh->GetOwner();
 	if (!IsValid(Owner) || !World)
 	{
@@ -46,6 +51,11 @@ FGASPFoleyOut UGASPFoleyWorldSubsystem::PlayFoleyEvent(UGASPFootstepEffectsSet* 
 		return FGASPFoleyOut{};
 	}
 
+	if (!IsValid(AudioBank))
+	{
+		return FGASPFoleyOut{};
+	}
+
 	const auto SurfaceType{Hit.PhysMaterial.IsValid() ? Hit.PhysMaterial->SurfaceType.GetValue() : SurfaceType_Default};
 	const auto FootstepSettings{AudioBank->GetFootstepSettingsFromSurface(SurfaceType)};
 	if (!FAnimWeight::IsRelevant(VolumeMultiplier) || !FootstepSettings)
@@ -62,8 +72,11 @@ FGASPFoleyOut UGASPFoleyWorldSubsystem::PlayFoleyEvent(UGASPFootstepEffectsSet* 
 	FGASPFoleyOut FoleyOut{};
 	if (bSpawnSound)
 	{
-		FoleyOut.AudioComponent = SpawnSound(Mesh, FootstepSettings->SoundSettings, SoundLocation, VolumeMultiplier,
-		                                     PitchMultiplier);
+		// Combine the caller's multipliers with the per-surface ones from the data asset; the latter
+		// were previously ignored, leaving those fields inert in the editor.
+		FoleyOut.AudioComponent = SpawnSound(Mesh, FootstepSettings->SoundSettings, SoundLocation, FootstepRotation,
+		                                     VolumeMultiplier * FootstepSettings->SoundSettings.VolumeMultiplier,
+		                                     PitchMultiplier * FootstepSettings->SoundSettings.PitchMultiplier);
 	}
 	if (bSpawnDecal)
 	{
@@ -82,7 +95,8 @@ FGASPFoleyOut UGASPFoleyWorldSubsystem::PlayFoleyEvent(UGASPFootstepEffectsSet* 
 
 UAudioComponent* UGASPFoleyWorldSubsystem::SpawnSound(const USkinnedMeshComponent* Mesh,
                                                       const FGASPFootstepSoundSettings& SoundSettings,
-                                                      const FVector& FootstepLocation, const float VolumeMultiplier,
+                                                      const FVector& FootstepLocation,
+                                                      const FRotator& FootstepRotation, const float VolumeMultiplier,
                                                       const float PitchMultiplier) const
 {
 	if (!IsValid(SoundSettings.Sound.LoadSynchronous()) || !World)
@@ -98,8 +112,10 @@ UAudioComponent* UGASPFoleyWorldSubsystem::SpawnSound(const USkinnedMeshComponen
 	}
 	else
 	{
+		// The foot orientation, not a rotator derived from the world position, which carried no
+		// meaningful direction.
 		return UGameplayStatics::SpawnSoundAtLocation(World, SoundSettings.Sound.Get(), FootstepLocation,
-		                                              FootstepLocation.ToOrientationRotator(), VolumeMultiplier,
+		                                              FootstepRotation, VolumeMultiplier,
 		                                              PitchMultiplier, 0.f, SoundSettings.SoundAttenuation,
 		                                              SoundSettings.SoundConcurrency);
 	}
@@ -116,9 +132,15 @@ UDecalComponent* UGASPFoleyWorldSubsystem::SpawnDecal(const USkinnedMeshComponen
 		return nullptr;
 	}
 
+	// Built on the stack: this runs on every footstep, and FName::ToString() would allocate an
+	// FString each time just to test a two-character suffix.
+	TStringBuilder<64> SocketNameBuilder;
+	SocketName.AppendString(SocketNameBuilder);
+	const bool bIsLeftFoot{SocketNameBuilder.ToView().EndsWith(TEXTVIEW("_l"), ESearchCase::IgnoreCase)};
+
 	const auto DecalRotation{
 		FootstepRotation.Quaternion() * FQuat{
-			SocketName.ToString().EndsWith("_l", ESearchCase::IgnoreCase)
+			bIsLeftFoot
 				? DecalSettings.FootLeftRotationOffset.Quaternion()
 				: DecalSettings.FootRightRotationOffset.Quaternion()
 		}

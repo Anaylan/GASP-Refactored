@@ -30,6 +30,8 @@ class GASP_API UGASPAnimInstance : public UAnimInstance
 	friend UChooserTable;
 	friend struct FGASPAnimInstanceProxy;
 
+	uint8 bForceBlendNextUpdate : 1{0};
+
 public:
 	UGASPAnimInstance() = default;
 
@@ -39,9 +41,6 @@ public:
 	virtual void NativeThreadSafeUpdateAnimation(float DeltaSeconds) override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 	virtual void NativePostUpdateAnimation();
-
-	// Creates a snapshot for the final ragdoll pose
-	FPoseSnapshot& SnapshotFinalRagdollPose();
 
 	// --- Movement Analysis ---
 	UFUNCTION(BlueprintPure, Category = "Movement|Analysis", meta = (BlueprintThreadSafe))
@@ -85,6 +84,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Procedural", meta = (BlueprintThreadSafe))
 	FRotator GetSlideSlopeRotation() const;
 	UFUNCTION(BlueprintPure, Category = "Procedural", meta = (BlueprintThreadSafe))
+	FVector2D GetSlopeAngle() const;
+	UFUNCTION(BlueprintPure, Category = "Procedural", meta = (BlueprintThreadSafe))
 	FTransform GetHandIKTransform(const FName HandIKSocketName, const FName ObjectIKSocketName,
 	                              const FVector& SocketOffset) const;
 	UFUNCTION(BlueprintPure, Category = "Procedural", meta = (BlueprintThreadSafe))
@@ -126,6 +127,8 @@ public:
 	float GetMatchingBlendTime() const;
 	UFUNCTION(BlueprintPure, Category = "BlendStack", meta = (BlueprintThreadSafe))
 	FFloatInterval GetMatchingPlayRate() const;
+	UFUNCTION(BlueprintPure, Category = "Procedural", meta = (BlueprintThreadSafe))
+	FVector GetBlendSpaceInputs() const;
 
 protected:
 	UPROPERTY(Transient)
@@ -141,60 +144,57 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
 	void RefreshEssentialValues(const float DeltaSeconds);
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
-	void RefreshStateContainer();
-	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
 	void RefreshTrajectory(float DeltaSeconds);
 
 	// --- Motion Matching & BlendStack Refresh ---
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
-	void RefreshMotionMatchingMovement(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnUpdate_MotionMatching(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
-	void RefreshMatchingPostSelection(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnMotionMatchingUpdateState(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
-	void RefreshOffsetRoot(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnUpdate_OffsetRoot(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
-	void RefreshBlendStack(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnUpdate_BlendStack(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 
 	// --- Systems Refresh ---
 	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
-	void OnBecomeRelevantFootPlacement(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
-	UFUNCTION(BlueprintCallable, Category = "Runtime", meta = (BlueprintThreadSafe))
-	void RefreshRagdollValues(const float DeltaSeconds);
+	void OnBecomeRelevant_FootPlacement(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, meta = (BlueprintThreadSafe))
 	void RefreshLayering(float DeltaTime);
 	UFUNCTION(BlueprintPure)
-	float GetTotalFacingDelta(TArray<float> Times) const;
+	float GetTotalFacingDelta(const TArray<float>& Times) const;
 
 	// --- State Machine Logic ---
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void SetBlendStackAnimFromChooser(const FAnimNodeReference& Node, const EStateMachineState NewState,
-	                                  const bool bForceBlend = false);
+	void SetBlendStackAnimFromChooser(const FAnimNodeReference& Node, const FName& NewState);
 	UFUNCTION(BlueprintPure, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	bool IsAnimationAlmostComplete() const;
+	bool IsAnimationAlmostComplete();
 	UFUNCTION(BlueprintPure, Category = "StateMachine", meta = (BlueprintThreadSafe))
 	float GetDynamicPlayRate(const FAnimNodeReference& Node) const;
 
 	// --- State Entry/Update Handlers ---
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnStateEntryIdleLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnStateEntry_IdleLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnStateEntryTransitionToIdleLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnStateEntry_IdleTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnStateEntryLocomotionLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnStateEntry_LocomotionLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnStateEntryTransitionToLocomotionLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnStateEntry_LocomotionTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnUpdateTransitionToLocomotionLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnUpdate_LocomotionTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnStateEntryInAirLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnStateEntry_InAirLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnStateEntryTransitionToInAirLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnStateEntry_InAirTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnStateEntryIdleBreak(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnStateEntry_IdleBreak(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnStateEntryTransitionToSlide(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnStateEntry_SlideTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
-	void OnStateEntrySlideLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	void OnStateEntry_SlideLoop(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, Category = "StateMachine", meta = (BlueprintThreadSafe))
+	void OnUpdate_StateMachineBlendStack(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 
 protected:
 	// --- References ---
@@ -203,7 +203,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "References", Transient)
 	TWeakObjectPtr<UGASPMoverComponent> CachedMovement{};
 	UPROPERTY(BlueprintReadOnly, Category = "References", Transient)
-	TObjectPtr<UMoverTrajectoryPredictor> Predictor;
+	TWeakObjectPtr<UMoverTrajectoryPredictor> Predictor{};
 
 	// --- Character State & Configuration ---
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CharacterInformation|General")
@@ -214,6 +214,8 @@ protected:
 	FCharacterInfo CharacterInfo{};
 	UPROPERTY(BlueprintReadOnly, Category = "CharacterInformation|PreviousValues", Transient)
 	FCharacterInfo PreviousCharacterInfo;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CharacterInformation|General")
+	FTransform BasedMovementDelta{FTransform::Identity};
 
 	// Tags & State Info
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LocomotionAction", Transient)
@@ -317,8 +319,6 @@ protected:
 	FLayeringState LayeringState{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Additive|Poses", Transient)
 	FGASPBlendPoses BlendPoses{};
-	UPROPERTY(BlueprintReadOnly, Category = "LocomotionAction|Information", Transient)
-	FRagdollingAnimationState RagdollingState{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeldObject", Transient)
 	FVector RightHandOffset{FVector::ZeroVector};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeldObject", Transient)
@@ -344,7 +344,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "StateMachine", Transient)
 	FGASPBlendStackInputs PreviousBlendStackInputs{};
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "StateMachine")
-	EStateMachineState StateMachineState{EStateMachineState::IdleLoop};
+	FName StateMachineState{NAME_None};
 
 public:
 	UPROPERTY(BlueprintReadOnly, Category = "StateMachine", Transient)
@@ -446,4 +446,18 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Movement|States", meta = (BlueprintThreadSafe))
 	FORCEINLINE float GetMovementDirectionLastTime() const { return MovementDirection_LastStateTime; }
+
+	UFUNCTION(BlueprintPure, Category = "Movement|Analysis",
+		meta = (AutoCreateRefTerm = "InterfaceClass", BlueprintThreadSafe))
+	bool IsLayerOverridden(TSubclassOf<class UAnimLayerInterface> InterfaceClass) const;
+
+	// Creates a snapshot for the final ragdoll pose
+	FPoseSnapshot& SnapshotFinalRagdollPose();
+
+protected:
+	UFUNCTION(BlueprintCallable)
+	void RefreshRagdollValues();
+
+	UPROPERTY(BlueprintReadOnly, Category = "LocomotionAction|Information", Transient)
+	FRagdollingAnimationState RagdollingState{};
 };

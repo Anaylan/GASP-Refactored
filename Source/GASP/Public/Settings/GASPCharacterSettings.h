@@ -7,9 +7,6 @@ class AGASPCharacter;
 class UChooserTable;
 struct FStreamableHandle;
 
-/**
- *
- */
 UCLASS(Blueprintable, BlueprintType)
 class GASP_API UGASPCharacterSettings : public UPrimaryDataAsset
 {
@@ -26,13 +23,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ragdolling",
 		Meta = (ClampMin = 0, EditCondition = "bStartRagdollingOnLand", ForceUnits = "cm/s"))
 	float RagdollingOnLandSpeedThreshold{1000.0f};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Ragdolling")
-	TObjectPtr<UAnimMontage> GetUpMontageFront{};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Ragdolling")
-	TObjectPtr<UAnimMontage> GetUpMontageBack{};
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Ragdolling")
-	uint8 bLimitInitialRagdollSpeed : 1{false};
-
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State|Character", meta = (ClampMin = 0, ForceUnits = ""))
+	float GravityMultiplier{1.f};
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float AnalogMovementThreshold{.7f};
 
@@ -44,6 +37,10 @@ public:
 	TSoftObjectPtr<UChooserTable> RotationCurveTable{nullptr};
 	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
 	TSoftObjectPtr<UChooserTable> TraversalTable{nullptr};
+	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
+	TSoftObjectPtr<UChooserTable> GetUpTable{nullptr};
+	UPROPERTY(EditAnywhere, Category="Choosers", BlueprintReadOnly)
+	TSoftObjectPtr<UChooserTable> InteractionTable{nullptr};
 	
 	virtual void PostLoad() override;
 

@@ -3,9 +3,6 @@
 #include "GameplayTagContainer.h"
 #include "GASPMovementInterface.generated.h"
 
-/**
- * 
- */
 UINTERFACE()
 class UGASPMovementInterface : public UInterface
 {
@@ -18,5 +15,12 @@ class GASP_API IGASPMovementInterface
 
 public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	FGameplayTag GetAssociatedTag();
+	FGameplayTag GetAssociatedTag() const;
+
+	static FGameplayTag GetAssociatedTagSafe(const UObject* Object)
+	{
+		return Object && Object->Implements<UGASPMovementInterface>()
+			       ? Execute_GetAssociatedTag(Object)
+			       : FGameplayTag::EmptyTag;
+	}
 };

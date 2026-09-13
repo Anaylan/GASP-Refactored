@@ -5,9 +5,6 @@
 #include "GASPStanceSettings.generated.h"
 
 class UGASPGaitSettings;
-/**
- * 
- */
 UCLASS(MinimalAPI, BlueprintType)
 class UGASPStanceSettings : public UObject, public IMovementSettingsInterface
 {

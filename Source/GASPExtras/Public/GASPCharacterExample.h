@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Actors/GASPCharacter.h"
 #include "GASPCharacterExample.generated.h"
@@ -16,7 +16,6 @@ protected:
 	virtual void OnRep_Controller() override;
 
 public:
-	// Sets default values for this character's properties
 	AGASPCharacterExample(const FObjectInitializer& ObjectInitializer);
 
 	UFUNCTION(BlueprintCallable, Category="Input|Actions")

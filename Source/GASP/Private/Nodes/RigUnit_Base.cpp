@@ -10,10 +10,31 @@ FRigUnit_AdjustPositionToPlane_Execute()
 {
 	DECLARE_SCOPE_HIERARCHICAL_COUNTER_RIGUNIT()
 
+	URigHierarchy* Hierarchy{ExecuteContext.Hierarchy};
+	if (!IsValid(Hierarchy) || !CachedSlopeAngleItem.UpdateCache(SlopeAngleItem, Hierarchy))
+	{
+		return;
+	}
+
+	FQuat SlopeQuat;
+	FRigVMFunction_MathQuaternionFromTwoVectors::StaticExecute(ExecuteContext, FVector::UpVector,
+	                                                           Hierarchy->GetGlobalTransform(CachedSlopeAngleItem).
+	                                                                      GetRotation().GetAxisZ(), SlopeQuat);
+
+
+	bool bCond;
+	FRigVMFunction_MathVectorIsNearlyEqual::StaticExecute(ExecuteContext, PlaneNormal, FVector::UpVector, .01f, bCond);
+	auto NewPlanePoint{bCond ? PlaneNormal : SlopeQuat.Inverse().RotateVector(PlanePoint)};
+
+	FQuat PlaneQuat;
+	FRigVMFunction_MathQuaternionFromTwoVectors::StaticExecute(ExecuteContext, FVector::UpVector,
+	                                                           PlaneNormal, PlaneQuat);
+	const auto NewPlaneNormal{(SlopeQuat.Inverse() * PlaneQuat).GetAxisZ()};
+
 	FVector PlaneIntersection;
 	float Distance;
-	FRigVMFunction_MathIntersectPlane::StaticExecute(ExecuteContext, PositionOnFlat, -FVector::UpVector, PlanePoint,
-	                                                 PlaneNormal, PlaneIntersection, Distance);
+	FRigVMFunction_MathIntersectPlane::StaticExecute(ExecuteContext, PositionOnFlat, -FVector::UpVector, NewPlanePoint,
+	                                                 NewPlaneNormal, PlaneIntersection, Distance);
 
 	AdjustedPosition = PlaneIntersection + FVector::UpVector * AnimatedHeightOffset;
 }
@@ -133,6 +154,7 @@ FRigUnit_LimitRotationToMaxSlopeAngle_Execute()
 	}
 
 	auto TargetVec{Hierarchy->GetGlobalTransform(CachedItem).GetRotation().GetAxisZ()};
+	
 	const float AngleBetween{
 		static_cast<float>(FRigVMMathLibrary::FindQuatBetweenVectors(FVector::UpVector, TargetVec).GetAngle())
 	};
@@ -162,7 +184,7 @@ FRigUnit_ProjectZDamperToGroundPlane_Execute()
 {
 	DECLARE_SCOPE_HIERARCHICAL_COUNTER_RIGUNIT()
 
-	auto WorldDisplacement{ExecuteContext.ToWorldSpace(FVector::ZeroVector) - WorldZPrev};
+	auto WorldDisplacement{ExecuteContext.ToWorldSpace(FVector::ZeroVector) - WorldZPrev.GetTranslation()};
 	auto ZMovementGroundNormal{GroundNormal * WorldDisplacement.Dot(GroundNormal)};
 	Result = WorldZDamper + (WorldDisplacement - ZMovementGroundNormal).Z;
 }
@@ -242,4 +264,19 @@ const TArray<FName>& FRigVMFunction_IsGameWorld::GetControlFlowBlocks_Impl() con
 
 	return Blocks;
 }
+
 #endif
+
+FRigVMFunction_ApplyGroundDeltaToWorldTransform_Execute()
+{
+	DECLARE_SCOPE_HIERARCHICAL_COUNTER_RIGUNIT()
+
+	const auto QuatMultiplier{GroundDelta.GetRotation() * WorldTransform.GetRotation()};
+	const auto CurPrevDeltaLoc{WorldTransform.GetTranslation() - WorldPrevTransform.GetTranslation()};
+	const auto TargetTranslation{
+		GroundDelta.GetRotation().RotateVector(CurPrevDeltaLoc) + GroundDelta.GetTranslation() + WorldPrevTransform.
+		GetTranslation()
+	};
+
+	World = FTransform{QuatMultiplier, TargetTranslation, WorldTransform.GetScale3D()};
+}

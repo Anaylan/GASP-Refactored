@@ -3,9 +3,6 @@
 #include "GameplayTagContainer.h"
 #include "AnimNotify_FoleyEvent.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class GASP_API UAnimNotify_FoleyEvent : public UAnimNotify
 {
@@ -17,13 +14,7 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AnimNotify")
 	FName SocketName{NAME_None};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AnimNotify", Meta = (ClampMin = 0, ForceUnits = "x"))
-	float VolumeMultiplier{1.f};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AnimNotify", Meta = (ClampMin = 0, ForceUnits = "x"))
-	float PitchMultiplier{1.f};
-
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AnimNotify", Meta = (ForceInlineRow))
 	TObjectPtr<class UGASPFootstepEffectsSet> DefaultBank{};
 
@@ -47,7 +38,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AnimNotify")
 	uint8 bSpawnInAir : 1 {false};
 
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify", Meta = (ClampMin = 0, ForceUnits = "x"))
+	float VolumeMultiplier{1.f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify", Meta = (ClampMin = 0, ForceUnits = "x"))
+	float PitchMultiplier{1.f};
+
+protected:
 	UGASPFootstepEffectsSet* GetAudioBank(AActor* Owner) const;
+
 public:
 	UAnimNotify_FoleyEvent();
 
