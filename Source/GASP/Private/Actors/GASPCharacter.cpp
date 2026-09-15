@@ -249,14 +249,14 @@ void AGASPCharacter::PostInitializeComponents()
 	});
 
 	{
-		auto Profile{PhysicsProfiles[GeneralVars::PhysicsProfileIndex]};
+		auto Profile{GetPhysicsProfile(GeneralVars::PhysicsProfileIndex)};
 		PhysicsProfileName = Profile;
 		SetPhysicsProfile(Profile);
 	}
 	GeneralVars::CVarPhysicsProfileIndexStruct->OnChangedDelegate().AddWeakLambda(
 		this, [this](const IConsoleVariable* CVar)
 		{
-			auto Profile{PhysicsProfiles[CVar ? CVar->GetInt() : 0]};
+			auto Profile{GetPhysicsProfile(CVar ? CVar->GetInt() : 0)};
 			PhysicsProfileName = Profile;
 			SetPhysicsProfile(Profile);
 		});
@@ -890,6 +890,16 @@ void AGASPCharacter::OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAct
 void AGASPCharacter::OnRep_TaskStates(const FInstancedStructCollection& OldTaskStates)
 {
 	TaskStates = OldTaskStates;
+}
+
+FName AGASPCharacter::GetPhysicsProfile(int32 Index)
+{
+	if (PhysicsProfiles.IsValidIndex(Index) && !PhysicsProfiles.IsEmpty())
+	{
+		return PhysicsProfiles[Index];
+	}
+
+	return NAME_None;
 }
 
 void AGASPCharacter::OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName)

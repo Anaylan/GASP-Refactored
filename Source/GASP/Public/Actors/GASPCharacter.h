@@ -78,8 +78,8 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
-	
-	
+
+
 	FName PhysicsProfileName{TEXT("")};
 
 	/**
@@ -92,11 +92,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Ragdolling")
 	TArray<FGASPBodyGroup> RagdollSelfCollisionGroups;
 
-protected:
+	FName GetPhysicsProfile(int32 Index);
 
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FName> PhysicsProfiles;
-	;
+
 	UFUNCTION()
 	virtual void OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName);
 
