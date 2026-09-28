@@ -113,6 +113,10 @@
     {
       "Name": "GameplayInteractions",
       "Enabled": true
+    },
+    {
+      "Name": "ControlRig",
+      "Enabled": true
     }
   ]
 }

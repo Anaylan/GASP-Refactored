@@ -23,7 +23,7 @@
 
 namespace
 {
-	/** The pose history node every participant's anim graph is expected to expose. */
+	/** Pose history node name expected in participant anim graphs. */
 	static const FName PoseHistoryName{TEXTVIEW("PoseHistory")};
 
 	bool IsInteractionSlotBusy(const UAnimInstance* AnimInstance)
@@ -36,8 +36,7 @@ UGASPCharacterInteractionComponent::UGASPCharacterInteractionComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 
-	// Required for the subobject RPCs below to be routed, and for the component to register itself
-	// with the replicated subobject list the module's Iris support expects.
+	// Required for subobject RPC routing and Iris replication support.
 	SetIsReplicatedByDefault(true);
 }
 
@@ -61,10 +60,7 @@ void UGASPCharacterInteractionComponent::GetLifetimeReplicatedProps(TArray<FLife
 
 	FDoRepLifetimeParams Params;
 	Params.bIsPushBased = true;
-	// Everyone, the initiator included: nothing is predicted locally any more, so the initiator has
-	// no other way to learn about the interaction it asked for. COND_SimulatedOnly would skip
-	// exactly that one connection, because a non-owning connection has the actor's role downgraded
-	// to SimulatedProxy while the owning connection keeps AutonomousProxy.
+	// Replicate to all connections since interaction execution is authority-driven.
 	Params.Condition = COND_None;
 	Params.RepNotifyCondition = REPNOTIFY_OnChanged;
 
@@ -117,9 +113,7 @@ void UGASPCharacterInteractionComponent::Interact_ServerImplementation(const TAr
 {
 	InteractionReps = Reps;
 
-	// AnimContexts holds anim instances, which are not net addressable and would serialize as a
-	// row of nulls. Kept empty here so nothing is sent for them; PerformInteraction fills them in
-	// locally on every machine before the result reaches Blueprint.
+	// Strip non-replicated AnimContexts before sending; reconstructed locally in PerformInteraction.
 	for (auto& [Actor, Result] : InteractionReps)
 	{
 		Result.AnimContexts.Empty();
@@ -138,7 +132,7 @@ void UGASPCharacterInteractionComponent::OnRep_InteractionReps()
 TArray<TObjectPtr<const UObject>> UGASPCharacterInteractionComponent::MakeAnimContexts(
 	TArrayView<const FGASPInteractionRep> Reps)
 {
-	// Indexed by role, because that is how UPoseSearchLibrary::GetActor looks a participant up.
+	// Indexed by role for UPoseSearchLibrary::GetActor lookup.
 	int32 NumRoles{0};
 	for (const auto& [Actor, Result] : Reps)
 	{
@@ -200,14 +194,11 @@ void UGASPCharacterInteractionComponent::PerformInteraction_Implementation()
 				PawnAnimInstance->Montage_SetBlendingOutDelegate(BlendOutDelegate, MontageToPlay);
 			}
 
-			// Blueprint reads this back through IGASPInteractionInterface::GetInteractionResult and
-			// expects a complete result, so the whole struct is stored. AnimContexts is the one
-			// part that cannot travel, so it is put back here rather than replicated.
+			// Reattach local AnimContexts for IGASPInteractionInterface consumers.
 			FPoseSearchBlueprintResult Stored{Rep.Result};
 			Stored.AnimContexts = AnimContexts;
 
-			// Deliberately not marked dirty: this method runs on every machine, driven by
-			// replicated InteractionReps, so the write is local on each of them by design.
+			// Store locally on each machine (driven by replicated InteractionReps).
 			Pawn->TaskStates.AddOrOverwriteData(FInstancedStruct::Make(Stored));
 			
 			NewParticipants.Emplace(Pawn);
@@ -288,8 +279,7 @@ bool UGASPCharacterInteractionComponent::RunInteractionSearch(const FName Intera
 				continue;
 			}
 
-			// Same rule as the initiator: a candidate already playing a montage - a traversal, or an
-			// earlier interaction - must not have it stopped out from under its owner.
+			// Skip candidates already playing an active montage.
 			auto* CandidateAnimInstance{GetAnimContext(Candidate)};
 			if (IsInteractionSlotBusy(CandidateAnimInstance))
 			{
@@ -303,9 +293,7 @@ bool UGASPCharacterInteractionComponent::RunInteractionSearch(const FName Intera
 	TArray<FPoseSearchBlueprintResult> Results;
 	UPoseSearchInteractionLibrary::MotionMatchMulti(Queries, PoseHistoryName, {}, Results);
 
-	// Pair each result with its actor while AnimContexts is still the locally built array, so the
-	// participant is still resolvable. Actor is what carries that identity onwards; the contexts
-	// themselves are dropped before replication and derived again by BuildAnimContexts.
+	// Associate each pose search result with its corresponding actor for replication.
 	OutReps.Reserve(Results.Num());
 	for (auto It = Results.CreateConstIterator(); It; ++It)
 	{
@@ -333,9 +321,7 @@ void UGASPCharacterInteractionComponent::TryInteract(const FName InteractionType
 	const auto* Owner{GetOwner()};
 	if (!Owner || !Owner->HasAuthority())
 	{
-		// Nothing is decided here any more: the authority runs the search and screens the request.
-		// OutFailureReason therefore stays empty on a client - it reports an authoritative decision,
-		// and the client does not have one yet.
+		// Forward request to server when called on client.
 		Server_Interact(InteractionType, Candidates);
 		return;
 	}

@@ -39,8 +39,6 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 	TObjectPtr<class UPhysicsControlComponent> PhysicsControlComponent;
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	TObjectPtr<class UGASPOverrideModeManager> OverrideModeManager;
-	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
-	TObjectPtr<class UGASPCharacterInteractionComponent> InteractionComponent;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintGetter=GetPoseMode, ReplicatedUsing=OnRep_PoseMode, Transient)
 	FGameplayTag PoseMode{PoseModeTags::Default};

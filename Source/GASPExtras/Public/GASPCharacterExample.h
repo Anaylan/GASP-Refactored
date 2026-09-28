@@ -11,6 +11,9 @@ class GASPEXTRAS_API AGASPCharacterExample : public AGASPCharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess))
 	TObjectPtr<class UGameplayCameraComponent> GameplayCamera{};
 
+	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
+	TObjectPtr<class UGASPCharacterInteractionComponent> InteractionComponent;
+	
 protected:
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_Controller() override;

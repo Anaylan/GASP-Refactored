@@ -1,1 +1,3 @@
 #include "MovementSet/Settings/RagdollSettings.h"
+
+#include UE_INLINE_GENERATED_CPP_BY_NAME(RagdollSettings)

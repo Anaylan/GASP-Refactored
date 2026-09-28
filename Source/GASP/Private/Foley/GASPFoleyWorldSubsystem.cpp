@@ -39,8 +39,6 @@ FGASPFoleyOut UGASPFoleyWorldSubsystem::PlayFoleyEvent(UGASPFootstepEffectsSet* 
 	FCollisionQueryParams QueryParams{__FUNCTION__, true, Owner};
 	QueryParams.bReturnPhysicalMaterial = true;
 
-	TArray<AActor*> IgnoredActors;
-	IgnoredActors.Add(Owner);
 	FHitResult Hit;
 	World->LineTraceSingleByChannel(Hit, SocketTransform.GetLocation(),
 	                                SocketTransform.GetLocation() - FVector::ZAxisVector * TraceLength,
@@ -106,7 +104,7 @@ UAudioComponent* UGASPFoleyWorldSubsystem::SpawnSound(const USkinnedMeshComponen
 
 	if (World->WorldType == EWorldType::EditorPreview)
 	{
-		UGameplayStatics::PlaySoundAtLocation(World, SoundSettings.Sound.Get(), Mesh->GetComponentLocation(),
+		UGameplayStatics::PlaySoundAtLocation(Mesh, SoundSettings.Sound.Get(), Mesh->GetComponentLocation(),
 		                                      VolumeMultiplier, PitchMultiplier, 0.f, SoundSettings.SoundAttenuation,
 		                                      SoundSettings.SoundConcurrency);
 	}
@@ -114,7 +112,7 @@ UAudioComponent* UGASPFoleyWorldSubsystem::SpawnSound(const USkinnedMeshComponen
 	{
 		// The foot orientation, not a rotator derived from the world position, which carried no
 		// meaningful direction.
-		return UGameplayStatics::SpawnSoundAtLocation(World, SoundSettings.Sound.Get(), FootstepLocation,
+		return UGameplayStatics::SpawnSoundAtLocation(Mesh, SoundSettings.Sound.Get(), FootstepLocation,
 		                                              FootstepRotation, VolumeMultiplier,
 		                                              PitchMultiplier, 0.f, SoundSettings.SoundAttenuation,
 		                                              SoundSettings.SoundConcurrency);
@@ -198,9 +196,8 @@ void UGASPFoleyWorldSubsystem::DebugLog(const FTransform& Transform, const FLine
 		return;
 	}
 
-	FVisualLogger::SphereLogf(World, FName(TEXT("VisLogFoley")), ELogVerbosity::Log,
-	                          Transform.GetLocation(), 5.f, VisLogDebugColor.ToFColor(true), false,
-	                          TEXT("%s"), *VisLogDebugText);
+	UE_VLOG_SPHERE(World, FName(TEXT("VisLogFoley")), Warning, Transform.GetLocation(), 5.f,
+	               VisLogDebugColor.ToFColor(true), TEXT("%s"), *VisLogDebugText);
 	DrawDebugSphere(World, Transform.GetLocation(), 10.f, 12, VisLogDebugColor.ToRGBE(),
 	                false, 4.f);
 }

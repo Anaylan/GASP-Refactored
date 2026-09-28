@@ -44,7 +44,7 @@ void UAnimNotify_FoleyEvent::Notify(USkeletalMeshComponent* MeshComp, UAnimSeque
                                     const FAnimNotifyEventReference& EventReference)
 {
 	Super::Notify(MeshComp, Animation, EventReference);
-
+	
 	auto* Owner = MeshComp->GetOwner();
 	if (!IsValid(Owner))
 	{
@@ -56,7 +56,7 @@ void UAnimNotify_FoleyEvent::Notify(USkeletalMeshComponent* MeshComp, UAnimSeque
 	{
 		return;
 	}
-
+	
 	auto* WorldContext = Owner->GetWorld();
 	const auto SocketTransform{MeshComp->GetSocketTransform(SocketName)};
 

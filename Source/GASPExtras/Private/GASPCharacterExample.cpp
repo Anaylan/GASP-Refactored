@@ -1,4 +1,6 @@
 #include "GASPCharacterExample.h"
+
+#include "Components/GASPCharacterInteractionComponent.h"
 #include "Components/GASPTraversalComponent.h"
 #include "GameFramework/GameplayCameraComponent.h"
 
@@ -7,6 +9,9 @@ AGASPCharacterExample::AGASPCharacterExample(const FObjectInitializer& ObjectIni
 {
 	GameplayCamera = CreateDefaultSubobject<UGameplayCameraComponent>(TEXT("GameplayCamera"));
 
+	InteractionComponent = CreateDefaultSubobject<UGASPCharacterInteractionComponent>(
+		TEXT("CharacterInteractionComponent"));
+	
 	if (GetMesh())
 	{
 		GameplayCamera->SetupAttachment(GetMesh(), FName{TEXT("root")});

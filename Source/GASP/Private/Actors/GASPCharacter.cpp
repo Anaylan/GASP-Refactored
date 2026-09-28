@@ -16,7 +16,6 @@
 #include "GASP.h"
 #include "Settings/GASPCharacterSettings.h"
 #include "PhysicsControlComponent.h"
-#include "Components/GASPCharacterInteractionComponent.h"
 #include "Components/GASPOverrideModeManager.h"
 #include "MovementSet/Modes/MovementMode_Ragdolling.h"
 #include "Tasks/CharacterTask_Ragdoll.h"
@@ -117,8 +116,6 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 	TraversalComponent = CreateDefaultSubobject<UGASPTraversalComponent>(TEXT("TraversalComponent"));
 	OverrideModeManager = CreateDefaultSubobject<UGASPOverrideModeManager>(TEXT("OverrideModeManager"));
 	NavMoverComponent = CreateDefaultSubobject<UNavMoverComponent>(NavMoverComponentName);
-	InteractionComponent = CreateDefaultSubobject<UGASPCharacterInteractionComponent>(
-		TEXT("CharacterInteractionComponent"));
 
 	PhysicsControlComponent = CreateDefaultSubobject<UPhysicsControlComponent>(PhysicsControlComponentName);
 	PhysicsControlComponent->SetupAttachment(GetMesh());

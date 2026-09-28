@@ -932,27 +932,6 @@ void UGASPAnimInstance::SetBlendStackAnimFromChooser(const FAnimNodeReference& N
 	BlendStack.DatabaseTags = ChooserOutputs.Tags;
 
 	bForceBlendNextUpdate = !BlendStackInputs.bLoop;
-	// if (!BlendStackInputs.bLoop)
-	// {
-	// 	const auto* AnimClass = IAnimClassInterface::GetFromClass(GetClass());
-	// 	const auto* TagSubsystem = AnimClass ? AnimClass->FindSubsystem<FAnimSubsystem_Tag>() : nullptr;
-	// 	const int32 BlendStackNodeIndex = TagSubsystem
-	// 		                                  ? TagSubsystem->FindNodeIndexByTag(StateMachineBlendStackTag)
-	// 		                                  : INDEX_NONE;
-	//
-	// 	if (BlendStackNodeIndex != INDEX_NONE)
-	// 	{
-	// 		EAnimNodeReferenceConversionResult Result{};
-	// 		const auto BlendRef = UBlendStackAnimNodeLibrary::ConvertToBlendStackNode(
-	// 			FAnimNodeReference(this, BlendStackNodeIndex), Result);
-	// 		if (Result != EAnimNodeReferenceConversionResult::Succeeded)
-	// 		{
-	// 			return;
-	// 		}
-	//
-	// 		UBlendStackAnimNodeLibrary::ForceBlendNextUpdate(BlendRef);
-	// 	}
-	// }
 }
 
 bool UGASPAnimInstance::IsAnimationAlmostComplete()
