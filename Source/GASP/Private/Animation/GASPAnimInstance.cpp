@@ -898,6 +898,10 @@ void UGASPAnimInstance::RefreshLayering(float DeltaTime)
 	                                        StanceMode_Current == StanceTags::Standing ? 1.f : 0.f, DeltaTime, 15.f);
 	BlendPoses.BasePoseCLF = FMath::GetMappedRangeValueClamped<float, float>(
 		{0.f, 1.f}, {1.f, 0.f}, BlendPoses.BasePoseN);
+
+	UpperbodyDynamicAdditiveWeight = IsAnyMontagePlaying() && CachedMovement->IsOnGround()
+		                                 ? 1.f
+		                                 : FMath::FInterpTo(UpperbodyDynamicAdditiveWeight, .0f, DeltaTime, 6.f);
 }
 
 void UGASPAnimInstance::SetBlendStackAnimFromChooser(const FAnimNodeReference& Node, const FName& NewState)

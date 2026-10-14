@@ -1,6 +1,7 @@
 #include "Components/GASPOverrideModeManager.h"
 #include "GASP.h"
-#include "Tasks/CharacterTask_Override.h"
+#include "Actors/GASPCharacter.h"
+#include "Components/SkeletalMeshComponent.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GASPOverrideModeManager)
 
@@ -12,26 +13,31 @@ UGASPOverrideModeManager::UGASPOverrideModeManager()
 void UGASPOverrideModeManager::AddOverrideLayer(FGameplayTag OverrideTag,
                                                 TSubclassOf<UAnimInstance> OverrideAnimClass)
 {
-	if (InstancedOverrideTasks.Contains(OverrideTag))
+	if (LinkedOverrideLayers.Contains(OverrideTag))
 	{
 		UE_LOG(LogGASP, Warning, TEXT("%s: AddOverrideLayer(%s) ignored - already active"),
 		       *GetName(), *OverrideTag.ToString());
 		return;
 	}
 
-	auto Task = UCharacterTask_Override::CreateOverrideTask(GetOwner(), OverrideAnimClass);
-	Task->ReadyForActivation();
+	if (auto* Mesh{OwnedCharacter->GetMesh()})
+	{
+		Mesh->LinkAnimClassLayers(OverrideAnimClass);
+	}
 
-	InstancedOverrideTasks.Add(OverrideTag, Task);
+	LinkedOverrideLayers.Add(OverrideTag, OverrideAnimClass);
 	OnOverrideLayerChanged.Broadcast(OverrideTag, true);
 }
 
 void UGASPOverrideModeManager::RemoveOverrideLayer(FGameplayTag OverrideTag)
 {
-	if (const auto Task{InstancedOverrideTasks.FindRef(OverrideTag)})
+	TSubclassOf<UAnimInstance> OverrideAnimClass;
+	if (LinkedOverrideLayers.RemoveAndCopyValue(OverrideTag, OverrideAnimClass))
 	{
-		Task->EndTask();
-		InstancedOverrideTasks.Remove(OverrideTag);
+		if (auto* Mesh{OwnedCharacter->GetMesh()})
+		{
+			Mesh->UnlinkAnimClassLayers(OverrideAnimClass);
+		}
 		OnOverrideLayerChanged.Broadcast(OverrideTag, false);
 	}
 }
@@ -40,19 +46,21 @@ void UGASPOverrideModeManager::BeginPlay()
 {
 	Super::BeginPlay();
 
-	InstancedOverrideTasks.Reset();
+	LinkedOverrideLayers.Reset();
+	OwnedCharacter = GetOwner<AGASPCharacter>();
 }
 
 void UGASPOverrideModeManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	for (const auto& Pair : InstancedOverrideTasks)
+	if (auto* Mesh{OwnedCharacter->GetMesh()})
 	{
-		if (Pair.Value)
+		for (const auto& [OverrideTag, OverrideAnimClass] : LinkedOverrideLayers)
 		{
-			Pair.Value->EndTask();
+			Mesh->UnlinkAnimClassLayers(OverrideAnimClass);
 		}
 	}
-	InstancedOverrideTasks.Reset();
+
+	LinkedOverrideLayers.Reset();
 
 	Super::EndPlay(EndPlayReason);
 }

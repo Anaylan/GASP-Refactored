@@ -1,4 +1,3 @@
-#include "PhysicsControlComponent.h"
 #include "Actors/GASPCharacter.h"
 #include "Animation/GASPAnimInstance.h"
 #include "Components/GASPOverrideModeManager.h"
@@ -12,7 +11,6 @@
 #include "Settings/GASPCharacterSettings.h"
 #include "Tasks/CharacterTask_Ragdoll.h"
 #include "Utils/GASPChooserLibrary.h"
-#include "Utils/GASPPhysicsControlLibrary.h"
 #include "Utils/GASPRagdollLibrary.h"
 
 
@@ -75,61 +73,6 @@ void AGASPCharacter::StartRagdollingImplementation(const bool bStopActiveMontage
 	}
 }
 
-
-void AGASPCharacter::SetPhysicsProfile(const FName NewPhysicsProfileName)
-{
-	if (!PhysicsControlComponent || !Mesh)
-	{
-		return;
-	}
-
-	// Update AppliedProfileName in TaskStates
-	if (auto* State{TaskStates.FindMutableDataByType<FRagdollingState>()})
-	{
-		State->AppliedProfileName = NewPhysicsProfileName;
-		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, TaskStates, this);
-	}
-
-	PhysicsControlComponent->InvokeControlProfile(NewPhysicsProfileName);
-
-	const bool bRagdollProfile{NewPhysicsProfileName == TEXT("Ragdoll")};
-
-	// Every pair of distinct limb groups, so the number of legs is a property of the character
-	// rather than of this function: two groups for a biped, six for a six-legged one.
-	for (int32 First{0}; First < RagdollSelfCollisionGroups.Num(); ++First)
-	{
-		if (RagdollSelfCollisionGroups[First].BoneNames.IsEmpty())
-		{
-			continue;
-		}
-
-		for (int32 Second{First + 1}; Second < RagdollSelfCollisionGroups.Num(); ++Second)
-		{
-			if (RagdollSelfCollisionGroups[Second].BoneNames.IsEmpty())
-			{
-				continue;
-			}
-
-			const auto& FirstBones{RagdollSelfCollisionGroups[First].BoneNames};
-			const auto& SecondBones{RagdollSelfCollisionGroups[Second].BoneNames};
-
-			if (bRagdollProfile)
-			{
-				UGASPPhysicsControlLibrary::EnableCollisionBetweenBodyArrays(
-					Mesh, FirstBones, Mesh, SecondBones
-				);
-			}
-			else
-			{
-				UGASPPhysicsControlLibrary::DisableCollisionBetweenBodyArrays(
-					Mesh, FirstBones, Mesh, SecondBones
-				);
-			}
-		}
-	}
-
-	Mesh->SetConstraintProfileForAll(bRagdollProfile ? NAME_None : FName{TEXT("Free")});
-}
 
 bool AGASPCharacter::StopRagdolling()
 {

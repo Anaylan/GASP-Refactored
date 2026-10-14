@@ -4,11 +4,10 @@
 #include "Components/ActorComponent.h"
 #include "GASPOverrideModeManager.generated.h"
 
-
-class UCharacterTask_Override;
+class AGASPCharacter;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnOverrideLayerChanged,
-                                              FGameplayTag, OverrideTag, bool, bIsActive);
+                                             FGameplayTag, OverrideTag, bool, bIsActive);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class GASP_API UGASPOverrideModeManager : public UActorComponent
@@ -33,5 +32,8 @@ protected:
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", Transient)
-	TMap<FGameplayTag, TObjectPtr<UCharacterTask_Override>> InstancedOverrideTasks;
+	TMap<FGameplayTag, TSubclassOf<UAnimInstance>> LinkedOverrideLayers;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<AGASPCharacter> OwnedCharacter;
 };

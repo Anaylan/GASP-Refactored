@@ -458,6 +458,9 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	void RefreshRagdollValues();
 
-	UPROPERTY(BlueprintReadOnly, Category = "LocomotionAction|Information", Transient)
+	UPROPERTY(BlueprintReadOnly, Category = "Locomotion|Action|Information", Transient)
 	FRagdollingAnimationState RagdollingState{};
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Locomotion|Information", Transient)
+	float UpperbodyDynamicAdditiveWeight;
 };

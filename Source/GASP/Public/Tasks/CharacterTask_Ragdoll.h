@@ -9,7 +9,7 @@ class UChooserTable;
 class AGASPCharacter;
 class UCapsuleComponent;
 class UGASPMoverComponent;
-class UPhysicsControlComponent;
+class UGASPPhysicsControlComponent;
 class USkeletalMeshComponent;
 
 USTRUCT(BlueprintType)
@@ -97,7 +97,7 @@ private:
 	TWeakObjectPtr<UCapsuleComponent> CapsuleComponent;
 
 	UPROPERTY(Transient)
-	TWeakObjectPtr<UPhysicsControlComponent> PhysicsControlComponent;
+	TWeakObjectPtr<UGASPPhysicsControlComponent> PhysicsControlComponent;
 
 	static const FName NAME_Ragdoll;
 	static const FName NAME_All;

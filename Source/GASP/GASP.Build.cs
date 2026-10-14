@@ -17,13 +17,14 @@ public class GASP : ModuleRules
 			"GameplayTags", "GameplayTasks",
 			"AIModule",
 			"PoseSearch", "RigVM", "ControlRig",
+			"PhysicsControl",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"EngineSettings",
 			"MotionTrajectory", "Chooser", "BlendStack", "AnimationWarpingRuntime", "AnimGraphRuntime", "MotionWarping",
-			"PhysicsCore", "PhysicsControl", "Niagara", "Chaos",
+			"PhysicsCore", "Niagara", "Chaos",
 		});
 
 		if (Target.Type == TargetRules.TargetType.Editor)

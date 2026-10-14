@@ -36,7 +36,7 @@ class GASP_API AGASPCharacter : public APawn, public IMoverInputProducerInterfac
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	TObjectPtr<class UCapsuleComponent> CapsuleComponent;
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
-	TObjectPtr<class UPhysicsControlComponent> PhysicsControlComponent;
+	TObjectPtr<class UGASPPhysicsControlComponent> PhysicsControlComponent;
 	UPROPERTY(Category=Character, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	TObjectPtr<class UGASPOverrideModeManager> OverrideModeManager;
 
@@ -77,25 +77,7 @@ public:
 
 	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
 
-
-	FName PhysicsProfileName{TEXT("")};
-
-	/**
-	 * Limbs that must not interpenetrate while the Ragdoll physics profile is active.
-	 *
-	 * Collision is enabled between every pair of distinct groups when that profile is applied and
-	 * disabled again for any other, so a biped lists two groups and a six-legged character lists
-	 * six. Bones inside a single group are left to whatever the physics asset says.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Ragdolling")
-	TArray<FGASPBodyGroup> RagdollSelfCollisionGroups;
-
-	FName GetPhysicsProfile(int32 Index);
-
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<FName> PhysicsProfiles;
-
 	UFUNCTION()
 	virtual void OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName);
 
@@ -173,7 +155,7 @@ public:
 	UMotionWarpingComponent* GetMotionWarpingComponent() const { return MotionWarpingComponent; }
 
 	UFUNCTION(BlueprintPure, Category = Physics)
-	UPhysicsControlComponent* GetPhysicsControlComponent() const { return PhysicsControlComponent; }
+	UGASPPhysicsControlComponent* GetPhysicsControlComponent() const { return PhysicsControlComponent; }
 
 	static FName MotionWarpingComponentName;
 	static FName CharacterMotionComponentName;
@@ -336,8 +318,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GASP|Character", meta = (AutoCreateRefTerm = "InjuryState"))
 	void StartRagdolling(const bool bStopActiveMontages, const FMontageBlendSettings& BlendSettings,
 	                     const FGameplayTag& InjuryState);
-
-	void SetPhysicsProfile(const FName NewPhysicsProfileName);
 
 	UFUNCTION(BlueprintCallable, Category = "GASP|Character")
 	bool StopRagdolling();

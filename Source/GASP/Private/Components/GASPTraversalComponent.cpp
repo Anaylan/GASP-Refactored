@@ -395,10 +395,13 @@ bool UGASPTraversalComponent::SelectTraversalMontage(FTraversalCheckResult& Trav
 		TraversalData.FrontLedgeLocation, FVector::OneVector);
 	IGASPTraversalInterface::Execute_SetInteractionTransform(AnimInstance.Get(), InteractionTransform);
 
+	FGameplayTagContainer GameplayTags;
+	CharacterOwner->GetOwnedGameplayTags(GameplayTags);
+	
 	FTraversalChooserInput ChooserParameters;
 	ChooserParameters.ActionType = TraversalData.ActionType;
 	ChooserParameters.Speed = MoverComponent->GetVelocity().Size2D();
-	ChooserParameters.StateContainer = CharacterOwner->GameplayTags;
+	ChooserParameters.StateContainer = GameplayTags;
 	ChooserParameters.bHasBackFloor = TraversalData.bHasBackFloor;
 	ChooserParameters.bHasBackLedge = TraversalData.bHasBackLedge;
 	ChooserParameters.bHasFrontLedge = TraversalData.bHasFrontLedge;

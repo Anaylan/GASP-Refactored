@@ -1,7 +1,7 @@
 #include "Tasks/CharacterTask_Ragdoll.h"
-#include "PhysicsControlComponent.h"
 #include "PhysicsControlData.h"
 #include "Actors/GASPCharacter.h"
+#include "Components/GASPPhysicsControlComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Kismet/GameplayStatics.h"
@@ -90,7 +90,7 @@ void UCharacterTask_Ragdoll::Activate()
 	Mesh->SetSimulatePhysics(true);
 	Mesh->SetCollisionProfileName(NAME_Ragdoll);
 
-	Character->SetPhysicsProfile(NAME_Ragdoll);
+	PhysicsControlComponent->ApplyProfile(UGASPPhysicsControlComponent::RagdollProfileName);
 
 	CapsuleComponent->SetCollisionProfileName(UCollisionProfile::Pawn_ProfileName);
 	CapsuleComponent->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
@@ -127,11 +127,11 @@ void UCharacterTask_Ragdoll::OnDestroy(bool bInOwnerFinished)
 		}();
 
 		PhysicsControlComponent->SetControlDatasInSet(NAME_ParentSpace, ZeroVelocityControlData);
+		PhysicsControlComponent->ApplySelectedProfile();
 	}
 
 	if (Character.IsValid())
 	{
-		Character->SetPhysicsProfile(Character->PhysicsProfileName);
 		Character->TaskStates.RemoveDataByType(FRagdollingState::StaticStruct());
 	}
 
@@ -164,6 +164,7 @@ void UCharacterTask_Ragdoll::TickTask(float DeltaTime)
 
 	RefreshRagdollPhysicsStrengthsFromCurves();
 
+	RagdollingState.AppliedProfileName = PhysicsControlComponent->GetAppliedProfileName();
 	Character->TaskStates.AddOrOverwriteData(FInstancedStruct::Make(RagdollingState));
 }
 
@@ -201,7 +202,8 @@ void UCharacterTask_Ragdoll::RefreshRagdollRollBehavior(const float DeltaTime)
 
 void UCharacterTask_Ragdoll::RefreshRagdollPhysicsStrengthsFromCurves() const
 {
-	if (RagdollingState.AppliedProfileName != NAME_Ragdoll)
+	// Read from the component: the profile can change mid-ragdoll through gasp.physics.profile.
+	if (PhysicsControlComponent->GetAppliedProfileName() != UGASPPhysicsControlComponent::RagdollProfileName)
 	{
 		return;
 	}

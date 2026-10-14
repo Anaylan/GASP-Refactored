@@ -15,8 +15,8 @@
 #include "MovementSet/Modes/MovementMode_Sliding.h"
 #include "GASP.h"
 #include "Settings/GASPCharacterSettings.h"
-#include "PhysicsControlComponent.h"
 #include "Components/GASPOverrideModeManager.h"
+#include "Components/GASPPhysicsControlComponent.h"
 #include "MovementSet/Modes/MovementMode_Ragdolling.h"
 #include "Tasks/CharacterTask_Ragdoll.h"
 #include "UniversalObjectLocators/AnimInstanceLocatorFragment.h"
@@ -50,10 +50,6 @@ namespace GeneralVars
 	int32 AnalogInputStyle{0};
 	FAutoConsoleVariableRef CVarAnalogInputStyleStruct(
 		TEXT("gasp.analoginput"), AnalogInputStyle, TEXT(""), ECVF_Default);
-
-	int32 PhysicsProfileIndex{0};
-	FAutoConsoleVariableRef CVarPhysicsProfileIndexStruct(
-		TEXT("gasp.physics.profile"), AnalogInputStyle, TEXT(""), ECVF_Default);
 }
 
 
@@ -71,13 +67,6 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 
 	SetReplicates(true);
 	SetReplicatingMovement(false);
-
-	// Default limbs for the UE mannequin skeleton. Data, not logic: a character with a different
-	// skeleton or a different number of legs overrides this in its Blueprint.
-	RagdollSelfCollisionGroups = {
-		FGASPBodyGroup{{TEXT("thigh_l"), TEXT("calf_l"), TEXT("foot_l")}},
-		FGASPBodyGroup{{TEXT("thigh_r"), TEXT("calf_r"), TEXT("foot_r")}}
-	};
 
 	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(CapsuleComponentName);
 	CapsuleComponent->InitCapsuleSize(34.0f, 88.0f);
@@ -117,7 +106,7 @@ AGASPCharacter::AGASPCharacter(const FObjectInitializer& ObjectInitializer)
 	OverrideModeManager = CreateDefaultSubobject<UGASPOverrideModeManager>(TEXT("OverrideModeManager"));
 	NavMoverComponent = CreateDefaultSubobject<UNavMoverComponent>(NavMoverComponentName);
 
-	PhysicsControlComponent = CreateDefaultSubobject<UPhysicsControlComponent>(PhysicsControlComponentName);
+	PhysicsControlComponent = CreateDefaultSubobject<UGASPPhysicsControlComponent>(PhysicsControlComponentName);
 	PhysicsControlComponent->SetupAttachment(GetMesh());
 }
 
@@ -138,8 +127,6 @@ void AGASPCharacter::BeginPlay()
 		GameplayTags.Reset();
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, GameplayTags, this);
 	}
-
-	NavMoverComponent = FindComponentByClass<UNavMoverComponent>();
 
 	// Mesh is created with CreateOptionalDefaultSubobject, so a subclass may legitimately opt out
 	// of it. Everything below that drives animation needs it, so resolve it once up front.
@@ -169,17 +156,13 @@ void AGASPCharacter::BeginPlay()
 
 	OverlayContainerChanged.AddDynamic(this, &ThisClass::OnOverlayModeChanged);
 	PoseModeChanged.AddDynamic(this, &ThisClass::OnPoseModeChanged);
-
-	SetPoseMode(PoseMode, true);
-	SetLocomotionAction(FGameplayTag::EmptyTag, true);
-
+	
 	MoverInputs_PreSim.OrientationIntent = GetActorForwardVector();
 
-	if (PhysicsControlComponent && MeshComponent)
+	ON_SCOPE_EXIT
 	{
-		PhysicsControlComponent->CreateControlsAndBodyModifiersFromPhysicsControlAsset(
-			MeshComponent, nullptr, NAME_None);
-	}
+		SetPoseMode(PoseMode, true);
+	};
 
 	ensureAlwaysMsgf(Settings, TEXT("Settings must be configured in character blueprint"));
 }
@@ -244,19 +227,6 @@ void AGASPCharacter::PostInitializeComponents()
 	{
 		TwinStickMode = CVar ? CVar->GetInt() >= 1 : false;
 	});
-
-	{
-		auto Profile{GetPhysicsProfile(GeneralVars::PhysicsProfileIndex)};
-		PhysicsProfileName = Profile;
-		SetPhysicsProfile(Profile);
-	}
-	GeneralVars::CVarPhysicsProfileIndexStruct->OnChangedDelegate().AddWeakLambda(
-		this, [this](const IConsoleVariable* CVar)
-		{
-			auto Profile{GetPhysicsProfile(CVar ? CVar->GetInt() : 0)};
-			PhysicsProfileName = Profile;
-			SetPhysicsProfile(Profile);
-		});
 
 	if (Settings)
 	{
@@ -887,16 +857,6 @@ void AGASPCharacter::OnRep_LocomotionAction(const FGameplayTag& OldLocomotionAct
 void AGASPCharacter::OnRep_TaskStates(const FInstancedStructCollection& OldTaskStates)
 {
 	TaskStates = OldTaskStates;
-}
-
-FName AGASPCharacter::GetPhysicsProfile(int32 Index)
-{
-	if (PhysicsProfiles.IsValidIndex(Index) && !PhysicsProfiles.IsEmpty())
-	{
-		return PhysicsProfiles[Index];
-	}
-
-	return NAME_None;
 }
 
 void AGASPCharacter::OnMovementModeChanged(const FName& PreviousMovementModeName, const FName& NewMovementModeName)
