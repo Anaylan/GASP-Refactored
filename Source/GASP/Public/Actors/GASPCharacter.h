@@ -8,6 +8,7 @@
 #include "Types/MovementTypes.h"
 #include "Types/StructTypes.h"
 #include "Types/TagTypes.h"
+#include "GameplayTaskOwnerInterface.h"
 #include "GASPCharacter.generated.h"
 
 class UCharacterTask_Ragdoll;
@@ -172,7 +173,7 @@ public:
 	FVector2D TwinStickAimDirection{FVector2D::ZeroVector};
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE UGASPCharacterSettings* GetSettings() const
+	UGASPCharacterSettings* GetSettings() const
 	{
 		return Settings;
 	}
@@ -262,31 +263,31 @@ public:
 	virtual void StopJumping();
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTagContainer GetOverlayMode() const
+	FGameplayTagContainer GetOverlayMode() const
 	{
 		return OverlayTagContainer;
 	}
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTag GetPoseMode() const
+	FGameplayTag GetPoseMode() const
 	{
 		return PoseMode;
 	}
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTag GetLocomotionAction() const
+	FGameplayTag GetLocomotionAction() const
 	{
 		return LocomotionAction;
 	}
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTag GetMovementMode() const;
+	FGameplayTag GetMovementMode() const;
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FGameplayTag GetStanceMode() const;
+	FGameplayTag GetStanceMode() const;
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE UGASPTraversalComponent* GetTraversalComponent() const
+	UGASPTraversalComponent* GetTraversalComponent() const
 	{
 		return TraversalComponent;
 	}
