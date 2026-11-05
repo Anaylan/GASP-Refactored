@@ -1,68 +1,80 @@
-# Game Animation Sample Refactored (GASP)
+# GASP Refactored
 
-Reworked and improved C++ architecture based on Epic's Game Animation Sample, powered by Mover 2.0 and NetworkPrediction.
+A C++ rewrite of Epic's **Game Animation Sample (GASP)**, rebuilt on **Mover 2.0** with **NetworkPrediction** and restructured into a modular, designer-friendly plugin.
 
-## Architecture & Modules
+<!-- TODO: add a 1-2 minute demo video or GIF here, e.g. ![Demo](docs/demo.gif) -->
 
-The plugin is structured into four dedicated modules:
+## Why this project
 
-- **`GASP`** (Runtime): Core gameplay module containing the custom Mover component (`UGASPMoverComponent`), locomotion modes, obstacle traversal system (`UGASPTraversalComponent`), ragdoll simulation and tasks, multi-character interactions, foley audio subsystem (`UGASPFoleyWorldSubsystem`), and animation nodes.
-- **`GASPCamera`** (Runtime): Gameplay camera interface (`IGASPGameplayCameraInterface`) and camera rig integration.
-- **`GASPExtras`** (Runtime): Sample implementations including `AGASPCharacterExample`, player controller, input mappings, moving platforms, and test interactions (takedown, shove).
-- **`GASPEditor`** (UncookedOnly): Editor tools, animation graph nodes (`UAnimGraphNode_GameplayTagsBlend`), and rig unit customizations.
+Epic's Game Animation Sample is a great showcase, but it is Blueprint-heavy and ships as a sample project rather than a reusable plugin. This project turns it into a modular, networked C++ plugin that you can drop into any project.
 
-## Key Features
+## What's different from Epic's sample
 
-- **Mover 2.0 Locomotion**: Built natively on Epic's Mover framework with `NetworkPrediction` support for client-side prediction, rollback, and replication.
-- **Dual Locomotion Pipelines**: Runtime-switchable between Motion Matching (Pose Search + BlendStack + Trajectory Prediction) and State Machine pipelines via console variable or configuration.
-- **Obstacle Traversal System**: Multi-stage trace detection for obstacle height, depth, front/back ledges, and floor clearance. Executes Chooser-selected animations with dynamic Motion Warping targets (vault, hurdle, climb).
-- **Physics-Driven Ragdoll & Get-Up**: Full ragdoll integration with slope auto-roll torque, impact direction prediction, Physics Control curves, and directional rolling or standing get-up montages evaluated through Chooser tables.
-- **Multi-Character Interactions**: Networked interaction framework (`UGASPCharacterInteractionComponent`) using server-authoritative Choosers and multi-character pose search for synchronized interactions.
-- **Foley & Surface Audio**: World subsystem (`UGASPFoleyWorldSubsystem`) driving surface-dependent MetaSounds, decals, and Niagara effects triggered by animation notifies.
-- **Overlay & Layering System**: GameplayTag-driven stance, gait, and overlay management with linked animation layers.
-- **Procedural IK & Rig Units**: Custom Control Rig units for slope alignment, toe ground alignment, hyperextension prevention, and pelvis clamping.
+- **Everything rewritten in C++** and reorganized into a modular plugin.
+- **Mover 2.0 + NetworkPrediction in C++**, with a custom `UGASPMoverComponent` and locomotion modes.
+- **Ragdoll rebuilt on GameplayTasks.**
+- **Overlay layering system** built with separate Anim Graphs and Linked Layers.
+- **ALS overlays, weapon attach and overlay switcher widget** ported into the plugin.
 
-## Supported Engine Versions & Platforms
+The earlier Character Movement Component version of this plugin is preserved on the `dev/cmc` branch.
 
-| Plugin Version | Unreal Engine Version |
-|----------------|-----------------------|
+## Key features
+
+- **Networked locomotion**: built on Mover 2.0 and NetworkPrediction with client-side prediction and replication.
+- **Switchable locomotion pipelines**: Motion Matching and State Machine, selectable at runtime.
+- **Character systems**: traversal, ragdoll, multi-character interactions and more.
+- **Layered animation**: GameplayTag-driven overlays built with linked animation layers.
+- **Audio and procedural animation**: surface-aware foley and Control Rig-based IK.
+
+## Architecture
+
+| Module | Type | Purpose |
+|---|---|---|
+| `GASP` | Runtime | Core gameplay and animation systems |
+| `GASPCamera` | Runtime | Camera integration |
+| `GASPExtras` | Runtime | Optional sample content and example implementations |
+| `GASPEditor` | UncookedOnly | Editor tools and customizations |
+
+## Supported engine versions
+
+| Plugin version | Unreal Engine |
+|---|---|
 | [1.3](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.3) | 5.5 |
 | [1.11](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.11) | 5.6 |
 | [1.12](https://github.com/Anaylan/GASP-Refactored/releases/tag/1.12) | 5.7 |
 | [2.0](https://github.com/Anaylan/GASP-Refactored/releases/tag/2.0) | 5.8 |
 
-Target platform is **Windows (Win64)**.
+Target platform: **Windows (Win64)**. Other platforms are untested.
 
-## Prerequisites & Required Plugins
+## Quick start
 
-The plugin relies on the following built-in Unreal Engine plugins enabled in `GASP.uplugin`:
-- `Mover`, `NetworkPrediction`, `GameplayTasks`
-- `PoseSearch`, `MotionTrajectory`, `MotionWarping`, `AnimationWarping`
-- `Chooser`, `BlendStack`
-- `GameplayCameras`, `EnhancedInput`
-- `PhysicsControl`, `GameplayInteractions`
-- `AnimationLocomotionLibrary`, `DeformerGraph`, `RigLogic`, `CurveExpression`
+1. Clone the repository (or extract a release) into your project's `Plugins` folder.
+2. Make sure the engine plugins listed in `GASP.uplugin` are enabled.
+3. Add the NetworkPrediction settings below to `Config/DefaultNetworkPrediction.ini`.
+4. Recompile and open the editor.
 
-## Quick Start
+## Troubleshooting
 
-1. Clone or extract the repository into your project's `Plugins` directory.
-2. Ensure the required engine plugins listed above are enabled in your project.
-3. Configure `Config/DefaultNetworkPrediction.ini` as described below.
-4. Compile and launch your project editor.
-
-## Configuration
-
-GASP requires independent ticking policy settings in `Config/DefaultNetworkPrediction.ini` to avoid movement jittering under NetworkPrediction:
+**Movement jitter under NetworkPrediction.** GASP needs the independent ticking policy. Add this to `Config/DefaultNetworkPrediction.ini`:
 
 ```ini
 [/Script/NetworkPrediction.NetworkPredictionSettingsObject]
 Settings=(PreferredTickingPolicy=Independent,ReplicatedManagerClassOverride=None,FixedTickFrameRate=60,bForceEngineFixTickForcePhysics=True,SimulatedProxyNetworkLOD=Interpolated,FixedTickInterpolationBufferedMS=100,IndependentTickInterpolationBufferedMS=100,IndependentTickInterpolationMaxBufferedMS=250,FixedTickInputSendCount=6,IndependentTickInputSendCount=6,MaximumRemoteInputFaultLimit=6)
 ```
 
-## Documentation & References
+## Console commands
 
-- [CONSOLE_COMMANDS.md](CONSOLE_COMMANDS.md) - Runtime console variables and debug commands reference.\
+Runtime debug and configuration commands are listed in [CONSOLE_COMMANDS.md](CONSOLE_COMMANDS.md).
+
+## Credits
+
+- **Epic Games**: Game Animation Sample, including animation and mesh assets.
+- **ALS (Advanced Locomotion System)**: overlay set, weapon attach and overlay switcher widget. <!-- TODO: link the exact ALS repository/author -->
 
 ## License
 
-Licensed under the MIT License. See [LICENSE.md](LICENSE.md) for details.
+Code is released under the MIT License, see [LICENSE.md](LICENSE.md). Epic's original assets remain subject to Epic's own license terms.
+
+## Contributing
+
+Forks, issues and pull requests are welcome.
